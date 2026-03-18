@@ -115,9 +115,13 @@ export default function DeviceCard({
     group,
     description,
   });
-  
+
   // Status color changes to gray when disabled
-  const statusColor = isDisabled ? "#d1d5db" : (status === "online" ? "#60FAC4" : "#FF7373");
+  const statusColor = isDisabled
+    ? "#d1d5db"
+    : status === "online"
+      ? "#60FAC4"
+      : "#FF7373";
 
   const handleDelete = () => {
     console.log("Deleted");
@@ -125,113 +129,129 @@ export default function DeviceCard({
 
   return (
     <>
-      <article className={`flex h-[223px] w-full items-center justify-center rounded-[15px] border transition-all duration-300 ease-out p-[28px_20px_12px_17px] ${
-        isDisabled
-          ? "border-[#d1d5db] bg-black/10"
-          : "border-[#e5e7eb] bg-white hover:shadow-[0_20px_40px_rgba(0,0,0,0.15),0_8px_16px_rgba(0,0,0,0.10)]"
-      }`}>
-      <div className="flex h-[183px] w-[278px] flex-col justify-between">
-        <div className="flex items-start justify-between">
-          <div className="flex min-w-0 items-start gap-[12px]">
-            <DeviceGlyph statusColor={statusColor} />
+      <article
+        className={`flex h-[223px] w-full items-center justify-center rounded-[15px] border transition-all duration-300 ease-out p-[28px_20px_12px_17px] ${
+          isDisabled
+            ? "border-[#d1d5db] bg-black/10"
+            : "border-[#e5e7eb] bg-white hover:shadow-[0_20px_40px_rgba(0,0,0,0.15),0_8px_16px_rgba(0,0,0,0.10)]"
+        }`}
+      >
+        <div className="flex h-[183px] w-[278px] flex-col justify-between">
+          <div className="flex items-start justify-between">
+            <div className="flex min-w-0 items-start gap-[12px]">
+              <DeviceGlyph statusColor={statusColor} />
 
-            <div className="min-w-0">
-              <div className="flex h-[39.884px] flex-col justify-center self-stretch">
-                <h3 className={`truncate font-['DM_Sans'] text-[22px] font-bold leading-[42px] tracking-[-0.44px] ${
-                  isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
-                }`}>
-                  {deviceData.name}
-                </h3>
+              <div className="min-w-0">
+                <div className="flex h-[39.884px] flex-col justify-center self-stretch">
+                  <h3
+                    className={`truncate font-['DM_Sans'] text-[22px] font-bold leading-[42px] tracking-[-0.44px] ${
+                      isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
+                    }`}
+                  >
+                    {deviceData.name}
+                  </h3>
+                </div>
+                <p
+                  className={`h-[21.936px] text-[14px] font-medium leading-6 tracking-[-0.28px] ${
+                    isDisabled ? "text-[#6b7280]" : "text-[#6b7280]"
+                  }`}
+                >
+                  {deviceData.group}
+                </p>
+                <p
+                  className={`h-[21.936px] truncate text-[14px] font-medium leading-6 tracking-[-0.28px] ${
+                    isDisabled ? "text-[#9ca3af]" : "text-[#9ca3af]"
+                  }`}
+                >
+                  {deviceData.description}
+                </p>
               </div>
-              <p className={`h-[21.936px] text-[14px] font-medium leading-6 tracking-[-0.28px] ${
-                isDisabled ? "text-[#6b7280]" : "text-[#6b7280]"
-              }`}>
-                {deviceData.group}
-              </p>
-              <p className={`h-[21.936px] truncate text-[14px] font-medium leading-6 tracking-[-0.28px] ${
-                isDisabled ? "text-[#9ca3af]" : "text-[#9ca3af]"
-              }`}>
-                {deviceData.description}
-              </p>
+            </div>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setMenuOpen((value) => !value)}
+                className="flex h-[27.364px] w-[26.984px] items-center justify-center transition-opacity hover:opacity-70"
+                aria-label="Device actions"
+              >
+                <span
+                  className="flex h-[17.989px] w-[4.5px] flex-col items-center justify-between"
+                  aria-hidden="true"
+                >
+                  <span className="h-[4.5px] w-[4.5px] rounded-full bg-[#3a3a3e] transition-colors" />
+                  <span className="h-[4.5px] w-[4.5px] rounded-full bg-[#3a3a3e] transition-colors" />
+                  <span className="h-[4.5px] w-[4.5px] rounded-full bg-[#3a3a3e] transition-colors" />
+                </span>
+              </button>
+              {menuOpen ? (
+                <ContextMenu
+                  onClose={() => setMenuOpen(false)}
+                  onEdit={() => setEditModalOpen(true)}
+                  onDisable={() => setIsDisabled(true)}
+                  onDelete={() => setDeleteModalOpen(true)}
+                />
+              ) : null}
             </div>
           </div>
 
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setMenuOpen((value) => !value)}
-              className="flex h-[27.364px] w-[26.984px] items-center justify-center transition-opacity hover:opacity-70"
-              aria-label="Device actions"
-            >
+          <div
+            className={`flex h-[58px] items-start gap-[10px] self-stretch rounded-[8px] pb-[13px] pl-[15px] pr-[14px] pt-[12px] border ${
+              isDisabled
+                ? "bg-black/10 border-[#d1d5db]"
+                : "bg-gradient-to-r from-[#f0f4f8] to-[#f9fafb] border-[#e5e7eb]"
+            }`}
+          >
+            <div className="flex h-[32px] w-[150px] items-center gap-[10px]">
+              <MarkerPinIcon />
               <span
-                className="flex h-[17.989px] w-[4.5px] flex-col items-center justify-between"
-                aria-hidden="true"
+                className={`truncate text-[14px] font-medium ${
+                  isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
+                }`}
               >
-                <span className="h-[4.5px] w-[4.5px] rounded-full bg-[#3a3a3e] transition-colors" />
-                <span className="h-[4.5px] w-[4.5px] rounded-full bg-[#3a3a3e] transition-colors" />
-                <span className="h-[4.5px] w-[4.5px] rounded-full bg-[#3a3a3e] transition-colors" />
+                {location}
               </span>
-            </button>
-            {menuOpen ? (
-              <ContextMenu 
-                onClose={() => setMenuOpen(false)}
-                onEdit={() => setEditModalOpen(true)}
-                onDisable={() => setIsDisabled(true)}
-                onDelete={() => setDeleteModalOpen(true)}
-              />
-            ) : null}
+            </div>
+
+            <div
+              className={`h-[28px] w-px ${isDisabled ? "bg-[#d1d5db]" : "bg-[#d1d5db]"}`}
+            />
+
+            <div className="flex h-[32px] w-[117px] items-center gap-[10px]">
+              <ClockIcon />
+              <span
+                className={`truncate text-[14px] font-medium ${
+                  isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
+                }`}
+              >
+                {date}
+              </span>
+            </div>
           </div>
         </div>
+      </article>
 
-        <div className={`flex h-[58px] items-start gap-[10px] self-stretch rounded-[8px] pb-[13px] pl-[15px] pr-[14px] pt-[12px] border ${
-          isDisabled
-            ? "bg-black/10 border-[#d1d5db]"
-            : "bg-gradient-to-r from-[#f0f4f8] to-[#f9fafb] border-[#e5e7eb]"
-        }`}>
-          <div className="flex h-[32px] w-[150px] items-center gap-[10px]">
-            <MarkerPinIcon />
-            <span className={`truncate text-[14px] font-medium ${
-              isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
-            }`}>
-              {location}
-            </span>
-          </div>
+      <DeleteModal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleDelete}
+      />
 
-          <div className={`h-[28px] w-px ${isDisabled ? "bg-[#d1d5db]" : "bg-[#d1d5db]"}`} />
-
-          <div className="flex h-[32px] w-[117px] items-center gap-[10px]">
-            <ClockIcon />
-            <span className={`truncate text-[14px] font-medium ${
-              isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
-            }`}>
-              {date}
-            </span>
-          </div>
-        </div>
-      </div>
-    </article>
-
-    <DeleteModal
-      open={deleteModalOpen}
-      onClose={() => setDeleteModalOpen(false)}
-      onConfirm={handleDelete}
-    />
-
-    <AddDeviceModal
-      open={editModalOpen}
-      onClose={() => setEditModalOpen(false)}
-      onConfirm={(values) => {
-        setDeviceData((current) => ({
-          ...current,
-          group: values.group,
-          description: values.description,
-        }));
-        setEditModalOpen(false);
-      }}
-      initialValues={deviceData}
-      title="Edit Device Details"
-      confirmLabel="Save"
-    />
-  </>
+      <AddDeviceModal
+        open={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        onConfirm={(values) => {
+          setDeviceData((current) => ({
+            ...current,
+            group: values.group,
+            description: values.description,
+          }));
+          setEditModalOpen(false);
+        }}
+        initialValues={deviceData}
+        title="Edit Device Details"
+        confirmLabel="Save"
+      />
+    </>
   );
 }

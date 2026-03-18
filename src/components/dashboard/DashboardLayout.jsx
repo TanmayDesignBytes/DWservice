@@ -90,9 +90,9 @@ function LogOutIcon() {
 
 function ProfileCard() {
   return (
-    <div className="absolute right-0 top-full z-[60] -mt-[7px] flex w-[250px] flex-col overflow-hidden rounded-[16px] border border-[#e5e7eb] bg-white shadow-[0_25px_50px_rgba(0,0,0,0.15),0_10px_20px_rgba(0,0,0,0.1)]">
-      <div className="flex h-[94px] w-[250px] shrink-0 flex-col items-start border-b border-[#e5e7eb] bg-gradient-to-r from-[#ede9fe] to-[#e0e7ff] px-4 py-3">
-        <div className="flex h-full w-[203px] flex-1 items-center justify-center gap-3 self-center">
+    <div className="absolute right-0 top-full z-[60] -mt-[7px] flex w-full sm:w-[250px] flex-col overflow-hidden rounded-[16px] border border-[#e5e7eb] bg-white shadow-[0_25px_50px_rgba(0,0,0,0.15),0_10px_20px_rgba(0,0,0,0.1)]">
+      <div className="flex h-[94px] w-full shrink-0 flex-col items-start border-b border-[#e5e7eb] bg-gradient-to-r from-[#ede9fe] to-[#e0e7ff] px-4 py-3">
+        <div className="flex h-full w-full sm:w-[203px] flex-1 items-center justify-center gap-3 self-center">
           <div className="relative flex h-[65px] w-[65px] items-center justify-center">
             <div className="absolute inset-0 rounded-[200px] border-[0.75px] border-[rgba(3,15,14,0.08)] opacity-[0.08]" />
             <img
@@ -111,9 +111,9 @@ function ProfileCard() {
         </div>
       </div>
 
-      <div className="flex w-[250px] flex-col items-start bg-white">
-        <div className="flex min-h-[100px] self-stretch flex-col items-center gap-[18px] border-b border-[#eaecf0] px-0 py-5">
-          <div className="flex w-full flex-col items-start px-5">
+      <div className="flex w-full flex-col items-start bg-white">
+        <div className="flex min-h-[100px] self-stretch flex-col items-center gap-[18px] border-b border-[#eaecf0] px-4 sm:px-0 py-5">
+          <div className="flex w-full flex-col items-start sm:px-5">
             <div className="self-stretch font-['Satoshi'] text-[14px] font-bold leading-5 text-[#475467]">
               Olivia Rhye
             </div>
@@ -131,9 +131,9 @@ function ProfileCard() {
 
         <button
           type="button"
-          className="flex min-h-[54px] self-stretch items-center bg-white px-0 py-1 text-left transition-all duration-200 hover:bg-[#f9fafb]"
+          className="flex min-h-[54px] self-stretch items-center bg-white px-4 sm:px-0 py-1 text-left transition-all duration-200 hover:bg-[#f9fafb]"
         >
-          <div className="flex flex-1 items-center gap-2 pl-5 pr-[6px] py-[2px]">
+          <div className="flex flex-1 items-center gap-2 sm:pl-5 pr-[6px] py-[2px]">
             <LogOutIcon />
             <div className="flex-1 font-['Inter'] text-[14px] font-medium leading-5 text-[#344054] transition-colors duration-200">
               Log out
@@ -180,8 +180,7 @@ function ExpandableSearchButton() {
     };
 
     document.addEventListener("pointerdown", handlePointerDown);
-    return () =>
-      document.removeEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [collapse, isExpanded]);
 
   const handleBlur = (event) => {
@@ -353,7 +352,9 @@ function CustomScrollbar({ children }) {
     element.addEventListener("scroll", handleScroll, { passive: true });
     resizeObserver.observe(element);
 
-    Array.from(element.children).forEach((child) => resizeObserver.observe(child));
+    Array.from(element.children).forEach((child) =>
+      resizeObserver.observe(child),
+    );
 
     window.addEventListener("resize", updateScrollState);
 
@@ -456,7 +457,9 @@ function CustomScrollbar({ children }) {
           ref={trackRef}
           className={[
             "absolute right-0 top-0 h-full rounded-[5px] bg-transparent transition-opacity duration-300 ease-in-out",
-            isScrollbarVisible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+            isScrollbarVisible
+              ? "pointer-events-auto opacity-100"
+              : "pointer-events-none opacity-0",
           ].join(" ")}
           style={{ width: `${CUSTOM_SCROLLBAR_WIDTH}px` }}
           onPointerDown={handleTrackPointerDown}
@@ -503,7 +506,7 @@ export default function DashboardLayout({
   return (
     <div className="dashboard-stage min-h-screen px-3 py-3 sm:px-4 sm:py-4 lg:px-0 lg:py-0 -ml-[5px]">
       <div className="flex w-full flex-col">
-        <div className="dashboard-shell flex min-h-[calc(100vh-24px)] w-full flex-col overflow-hidden rounded-none bg-white sm:min-h-[calc(100vh-32px)] lg:h-[980px] lg:min-h-[980px]">
+        <div className="dashboard-shell flex min-h-screen w-full flex-col overflow-hidden rounded-none bg-white sm:min-h-screen lg:min-h-screen">
           <header className="relative z-[30] flex h-[74px] min-h-[74px] items-center justify-between bg-gradient-to-r from-white to-[#fafbfc] px-4 py-4 sm:px-6 lg:px-5">
             <DashboardLogo />
 
@@ -522,14 +525,14 @@ export default function DashboardLayout({
             </div>
           </header>
 
-          <div className="dashboard-body relative z-[1] flex min-h-0 flex-1 gap-0 px-3 pb-3 pt-0 sm:px-4 sm:pb-4 lg:h-[906px] lg:px-0 lg:pb-0">
-            <div className="lg:w-[98px] lg:pl-[18px]">
+          <div className="dashboard-body relative z-[1] flex min-h-0 flex-1 gap-0 px-3 pb-3 pt-0 sm:px-4 sm:pb-4 lg:px-0 lg:pb-0">
+            <div className="hidden w-auto md:block lg:w-[98px] lg:pl-[18px]">
               <Sidebar pathname={pathname} onNavigate={onNavigate} />
             </div>
 
-            <div className="dashboard-panel flex min-h-[620px] flex-1 flex-col self-start rounded-[21px] border-t border-[#d7dee8] bg-white lg:mt-0 lg:h-[878px] lg:w-[1390px] lg:max-w-[1390px] lg:flex-none">
+            <div className="dashboard-panel flex min-h-[600px] w-full flex-1 flex-col self-start rounded-lg sm:rounded-[21px] border-t border-[#d7dee8] bg-white lg:mt-0 lg:max-w-full lg:flex-1">
               {toolbar ? (
-                <div className="z-20 px-6 pb-5 pt-5 lg:px-10 lg:pb-5 lg:pt-5">
+                <div className="z-20 px-4 sm:px-6 md:px-6 lg:px-10 pb-5 pt-5">
                   {toolbar}
                   <div className="mt-5 h-px bg-[#eef1f5]" />
                 </div>

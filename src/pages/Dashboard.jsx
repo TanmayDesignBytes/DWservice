@@ -15,14 +15,14 @@ export default function Dashboard({ pathname, onNavigate }) {
   // Tab state - manages which tab is selected
   const [selectedTab, setSelectedTab] = useState("all");
   const [showAddDevice, setShowAddDevice] = useState(false);
-  
+
   // Filter state - manages selected group filter
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
-  
+
   const groupMenuRef = useRef(null);
   const tabRefs = useRef({});
-  
+
   const [activeTabStyle, setActiveTabStyle] = useState({
     width: 0,
     left: 0,
@@ -32,7 +32,10 @@ export default function Dashboard({ pathname, onNavigate }) {
   // Close group menu when clicking outside
   useEffect(() => {
     const handleClick = (event) => {
-      if (groupMenuRef.current && !groupMenuRef.current.contains(event.target)) {
+      if (
+        groupMenuRef.current &&
+        !groupMenuRef.current.contains(event.target)
+      ) {
         setGroupMenuOpen(false);
       }
     };
@@ -116,8 +119,8 @@ export default function Dashboard({ pathname, onNavigate }) {
   }, [filteredDevices.length, selectedTab, selectedGroup]);
 
   const toolbar = (
-    <div className="flex w-full min-w-0 flex-col items-center gap-4 xl:flex-row xl:items-center xl:justify-between">
-      <div className="relative mx-auto inline-flex h-[57px] w-full max-w-[500px] min-w-0 items-center rounded-[79.177px] border border-[#f0f0f0] bg-white p-[6px] shadow-[0_3.167px_12.668px_rgba(0,0,0,0.05)] xl:mx-0">
+    <div className="flex w-full min-w-0 flex-col items-center gap-2 sm:gap-3 md:gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="relative mx-auto inline-flex h-[57px] w-full min-w-0 max-w-full sm:max-w-[500px] items-center rounded-[79.177px] border border-[#f0f0f0] bg-white p-[6px] shadow-[0_3.167px_12.668px_rgba(0,0,0,0.05)] lg:mx-0 lg:max-w-[500px]">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute bottom-[6px] top-[6px] rounded-[21.774px] bg-[#2970ff] shadow-[0_3.167px_3.167px_rgba(0,0,0,0.15)] transition-all duration-300 ease-out"
@@ -136,10 +139,7 @@ export default function Dashboard({ pathname, onNavigate }) {
             }}
             onClick={() => setSelectedTab(tab.id)}
             className={cn(
-              "relative z-[1] flex h-[44px] items-center justify-center rounded-[21.774px] text-[18px] font-semibold leading-[19.002px] transition-colors duration-300 ease-out",
-              tab.id === "all" && "w-[147.193px]",
-              tab.id === "available" && "w-[152px]",
-              tab.id === "unavailable" && "w-[170px]",
+              "relative z-[1] flex min-w-0 flex-1 h-[44px] items-center justify-center rounded-[21.774px] text-[14px] sm:text-[16px] md:text-[18px] font-semibold leading-[19.002px] transition-colors duration-300 ease-out px-1 sm:px-2",
               selectedTab === tab.id && "text-white",
               selectedTab !== tab.id && "text-[rgba(0,0,0,0.75)]",
             )}
@@ -149,19 +149,23 @@ export default function Dashboard({ pathname, onNavigate }) {
         ))}
       </div>
 
-      <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-3 xl:w-auto xl:shrink-0 xl:justify-end">
+      <div className="flex w-full min-w-0 flex-col items-center justify-center gap-2 sm:flex-row sm:gap-3 lg:w-auto lg:shrink-0 lg:justify-end">
         <div ref={groupMenuRef} className="relative">
           <button
             type="button"
             onClick={() => setGroupMenuOpen((value) => !value)}
             className={cn(
-              "flex h-[56px] w-[234px] items-center justify-between rounded-[10px] border px-[30px] text-[16px] font-semibold leading-[19.002px]",
+              "flex h-[56px] w-full sm:w-auto sm:min-w-[200px] lg:w-[234px] items-center justify-between rounded-[10px] border px-4 sm:px-[30px] text-[14px] sm:text-[16px] font-semibold leading-[19.002px]",
               selectedGroup
                 ? "border-[#2970ff] bg-[#f0f4f8] text-[#2970ff]"
-                : "border-[#ececec] bg-white text-[rgba(0,0,0,0.75)]"
+                : "border-[#ececec] bg-white text-[rgba(0,0,0,0.75)]",
             )}
           >
-            <span>{selectedGroup ? groupOptions.find((opt) => opt.id === selectedGroup)?.label : "Group"}</span>
+            <span className="truncate">
+              {selectedGroup
+                ? groupOptions.find((opt) => opt.id === selectedGroup)?.label
+                : "Group"}
+            </span>
             <img
               src="/chevron-down.svg"
               alt=""
@@ -191,7 +195,7 @@ export default function Dashboard({ pathname, onNavigate }) {
                     "flex w-full items-center px-4 py-2 text-left text-[14px] font-medium transition-colors",
                     selectedGroup === option.id
                       ? "bg-[#f0f4f8] text-[#2970ff]"
-                      : "text-[#101728] hover:bg-[#f8f9fc]"
+                      : "text-[#101728] hover:bg-[#f8f9fc]",
                   )}
                 >
                   {option.label}
@@ -204,7 +208,7 @@ export default function Dashboard({ pathname, onNavigate }) {
         <button
           type="button"
           onClick={() => setShowAddDevice(true)}
-          className="flex h-[56px] w-[148px] items-center justify-start gap-[6px] rounded-[28px] bg-[linear-gradient(118deg,#2970FF_9.79%,#193D9E_97.55%)] pl-4 pr-[14px] text-[16px] font-semibold leading-[19.002px] text-white"
+          className="flex h-[56px] w-full sm:w-auto sm:min-w-[140px] lg:w-[148px] items-center justify-center sm:justify-start gap-[6px] rounded-[28px] bg-[linear-gradient(118deg,#2970FF_9.79%,#193D9E_97.55%)] px-4 sm:pl-4 sm:pr-[14px] text-[14px] sm:text-[16px] font-semibold leading-[19.002px] text-white"
         >
           <img
             src="/plus.svg"
@@ -212,7 +216,7 @@ export default function Dashboard({ pathname, onNavigate }) {
             className="h-[21px] w-[21px] shrink-0 object-contain"
             aria-hidden="true"
           />
-          Add Device
+          <span>Add Device</span>
         </button>
       </div>
     </div>
@@ -225,15 +229,17 @@ export default function Dashboard({ pathname, onNavigate }) {
         pathname={pathname}
         onNavigate={onNavigate}
       >
-        <div className="shrink-0 pb-[28px] pl-[43px] pr-[41px] pt-[6px]">
+        <div className="shrink-0 pb-4 sm:pb-6 md:pb-7 pl-4 sm:pl-6 md:pl-8 lg:pl-[43px] pr-4 sm:pr-6 md:pr-8 lg:pr-[41px] pt-1 sm:pt-3 md:pt-4 lg:pt-[6px]">
           {emptyStateMessage ? (
-            <div className="flex h-[400px] items-center justify-center">
-              <div className="text-center">
-                <p className="text-[18px] font-semibold text-[#6b7280]">{emptyStateMessage}</p>
+            <div className="flex h-[300px] sm:h-[400px] items-center justify-center">
+              <div className="text-center px-4">
+                <p className="text-[16px] sm:text-[18px] font-semibold text-[#6b7280]">
+                  {emptyStateMessage}
+                </p>
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-x-[15px] gap-y-[15px]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-4 lg:gap-x-[15px] lg:gap-y-[15px]">
               {filteredDevices.map((device) => (
                 <DeviceCard key={device.id} {...device} />
               ))}
