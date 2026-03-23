@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { devices } from "@/data/dashboard";
 
 const ChevronDownIcon = () => (
@@ -47,6 +47,8 @@ export default function AddDeviceModal({
   initialValues = EMPTY_VALUES,
   title = "Add Device Details",
   confirmLabel = "Confirm",
+  isSubmitting = false,
+  errorMessage = "",
 }) {
   const [formValues, setFormValues] = useState(EMPTY_VALUES);
 
@@ -77,7 +79,16 @@ export default function AddDeviceModal({
   };
 
   const handleConfirm = () => {
+    if (isSubmitting) {
+      return;
+    }
+
     onConfirm?.(formValues);
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    handleConfirm();
   };
 
   return (
@@ -86,7 +97,7 @@ export default function AddDeviceModal({
       onClick={onClose}
     >
       <div
-        className="flex h-[565px] w-[514px] max-w-full flex-col justify-center items-center rounded-[20px] bg-white p-[50px] shadow-[0_4px_4px_rgba(0,0,0,0.25)] backdrop-blur-[6.5px]"
+        className="flex h-[565px] w-[514px] max-w-full flex-col items-center justify-center rounded-[20px] bg-white p-[50px] shadow-[0_4px_4px_rgba(0,0,0,0.25)] backdrop-blur-[6.5px]"
         onClick={(event) => event.stopPropagation()}
       >
         <h2
@@ -96,7 +107,7 @@ export default function AddDeviceModal({
           {title}
         </h2>
 
-        <div className="mt-8 flex w-full flex-col gap-5 self-stretch">
+        <form className="mt-8 flex w-full flex-col gap-5 self-stretch" onSubmit={handleSubmit}>
           <Field label="Device Name">
             <input
               type="text"
@@ -141,27 +152,35 @@ export default function AddDeviceModal({
               onChange={handleChange("description")}
             />
           </Field>
-        </div>
 
-        <div className="mt-[76px] flex w-full items-start justify-start gap-[76px] self-stretch">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-[44px] w-[169px] items-center justify-center gap-[0.375rem] rounded-[100px] border border-[#33363F] bg-white px-4 py-[10px] text-[16px] font-semibold leading-6 text-[#33363F] shadow-[0_1px_2px_rgba(16,24,40,0.05)]"
-            style={{ fontFamily: "Inter, sans-serif", fontStyle: "normal" }}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            className="flex h-[44px] w-[169px] items-center justify-center gap-[0.375rem] rounded-[100px] border border-[#2970FF] bg-[#2970FF] px-4 py-[10px] text-[16px] font-semibold leading-6 text-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-colors hover:bg-[#193D9E]"
-            style={{ fontFamily: "Inter, sans-serif", fontStyle: "normal" }}
-          >
-            {confirmLabel}
-          </button>
-        </div>
+          {errorMessage ? (
+            <div className="w-full rounded-[12px] border border-[#fecdca] bg-[#fef3f2] px-4 py-3 text-[14px] font-medium leading-5 text-[#b42318]">
+              {errorMessage}
+            </div>
+          ) : null}
+
+          <div className="mt-[56px] flex w-full items-start justify-start gap-[76px] self-stretch">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="flex h-[44px] w-[169px] items-center justify-center gap-[0.375rem] rounded-[100px] border border-[#33363F] bg-white px-4 py-[10px] text-[16px] font-semibold leading-6 text-[#33363F] shadow-[0_1px_2px_rgba(16,24,40,0.05)]"
+              style={{ fontFamily: "Inter, sans-serif", fontStyle: "normal" }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex h-[44px] w-[169px] items-center justify-center gap-[0.375rem] rounded-[100px] border border-[#2970FF] bg-[#2970FF] px-4 py-[10px] text-[16px] font-semibold leading-6 text-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-colors hover:bg-[#193D9E]"
+              style={{ fontFamily: "Inter, sans-serif", fontStyle: "normal" }}
+            >
+              {confirmLabel}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
 }
+

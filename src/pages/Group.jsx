@@ -3,7 +3,7 @@ import AddGroupModal from "@/components/dashboard/AddGroupModal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import GroupCardGrid from "@/components/GroupCard";
 
-export default function Group({ pathname, onNavigate }) {
+export default function Group({ pathname, onNavigate, onSignOut }) {
   const [showAddGroup, setShowAddGroup] = useState(false);
 
   const toolbar = (
@@ -34,8 +34,9 @@ export default function Group({ pathname, onNavigate }) {
         toolbar={toolbar}
         pathname={pathname}
         onNavigate={onNavigate}
+        onSignOut={onSignOut}
       >
-        <div className="-mt-4 sm:-mt-0 pl-4 sm:pl-6 md:pl-8 lg:pl-[43px] pr-4 sm:pr-6 md:pr-8 lg:pr-[41px] pt-0">
+        <div className="-mt-12 sm:-mt-6 pl-4 sm:pl-6 md:pl-8 lg:pl-[43px] pr-4 sm:pr-6 md:pr-8 lg:pr-[41px] pt-0">
           <GroupCardGrid />
         </div>
       </DashboardLayout>

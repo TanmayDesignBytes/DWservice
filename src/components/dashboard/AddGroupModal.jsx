@@ -31,6 +31,7 @@ export default function AddGroupModal({
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormValues({
         name: initialValues?.name ?? "",
         description: initialValues?.description ?? "",

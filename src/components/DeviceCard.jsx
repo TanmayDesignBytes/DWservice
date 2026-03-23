@@ -1,18 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import AddDeviceModal from "@/components/dashboard/AddDeviceModal";
+import DeviceTerminalModal from "@/components/dashboard/DeviceTerminalModal";
 import DeleteModal from "./DeleteModal";
 
-function DeviceGlyph({ statusColor }) {
+function DeviceGlyph({ statusColor, isInstallCard = false }) {
   return (
     <div className="relative flex h-[33px] w-[33px] items-center justify-center rounded-[7px] bg-[#f4f7fe]">
       <span
-        className="absolute left-0 top-1/2 h-[27.364px] w-[4.5px] -translate-y-1/2 rounded-[4px]"
+        className={
+          isInstallCard
+            ? "absolute left-0 top-[4px] h-[24px] w-[5px] rounded-[2.5px]"
+            : "absolute left-0 top-1/2 h-[27.364px] w-[4.5px] -translate-y-1/2 rounded-[4px]"
+        }
         style={{ backgroundColor: statusColor }}
       />
       <img
         src="/respberry.png"
         alt=""
-        className={`h-[18px] w-[14px] shrink-0 aspect-[7/9] object-contain ${statusColor === "#d1d5db" ? "grayscale opacity-60" : ""}`}
+        className={`aspect-[7/9] h-[18px] w-[14px] shrink-0 object-contain ${statusColor === "#d1d5db" ? "grayscale opacity-60" : ""}`}
         aria-hidden="true"
       />
     </div>
@@ -41,7 +46,51 @@ function ClockIcon() {
   );
 }
 
-function ContextMenu({ onClose, onEdit, onDisable, onDelete }) {
+function InstallInfoIcon() {
+  return (
+    <img
+      src="/Info_alt_duotone.svg"
+      alt=""
+      className="h-6 w-6 shrink-0 object-contain"
+      aria-hidden="true"
+    />
+  );
+}
+
+function DownloadInstallIcon() {
+  return (
+    <img
+      src="/download-04.svg"
+      alt=""
+      className="h-[14px] w-[14px] shrink-0 object-contain"
+      aria-hidden="true"
+    />
+  );
+}
+
+function InstallFooter({ location, date }) {
+  return (
+    <div className="flex h-[58px] items-start gap-[10px] self-stretch rounded-[8px] border border-[#e5e7eb] bg-gradient-to-r from-[#f0f4f8] to-[#f9fafb] pb-[13px] pl-[15px] pr-[14px] pt-[12px]">
+      <div className="flex h-[32px] w-[150px] items-center gap-[10px]">
+        <MarkerPinIcon />
+        <span className="truncate text-[14px] font-medium text-[#1f2937]">
+          {location}
+        </span>
+      </div>
+
+      <div className="h-[28px] w-px bg-[#d1d5db]" />
+
+      <div className="flex h-[32px] w-[117px] items-center gap-[10px]">
+        <ClockIcon />
+        <span className="truncate text-[14px] font-medium text-[#1f2937]">
+          {date}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ContextMenu({ isInstallCard, onClose, onEdit, onDisable, onDelete }) {
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -55,23 +104,30 @@ function ContextMenu({ onClose, onEdit, onDisable, onDelete }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [onClose]);
 
-  const items = [
-    { icon: "/edit-03.svg", label: "Edit", action: "edit" },
-    { icon: "/eye-off.svg", label: "Disable", action: "disable" },
-    { icon: "/trash-01.svg", label: "Delete", action: "delete" },
-    { icon: "/share-06.svg", label: "New Share", action: null },
-  ];
+  const items = isInstallCard
+    ? [
+        { icon: "/edit-03.svg", label: "Edit", action: "edit" },
+        { icon: "/trash-01.svg", label: "Delete", action: "delete" },
+      ]
+    : [
+        { icon: "/edit-03.svg", label: "Edit", action: "edit" },
+        { icon: "/eye-off.svg", label: "Disable", action: "disable" },
+        { icon: "/trash-01.svg", label: "Delete", action: "delete" },
+        { icon: "/Black.svg", label: "Reboot", action: null },
+      ];
 
   return (
     <div
       ref={menuRef}
+      onClick={(event) => event.stopPropagation()}
       className="absolute left-1/2 top-full z-50 mt-2 w-[184px] -translate-x-1/2 rounded-[8px] border border-[rgba(234,236,240,0.5)] bg-white py-1 shadow-[0_4px_4px_rgba(0,0,0,0.25),0_12px_20px_rgba(7,6,18,0.25)]"
     >
       {items.map((item) => (
         <button
           key={item.label}
           type="button"
-          onClick={() => {
+          onClick={(event) => {
+            event.stopPropagation();
             if (item.action === "edit") {
               onEdit();
             } else if (item.action === "disable") {
@@ -81,13 +137,13 @@ function ContextMenu({ onClose, onEdit, onDisable, onDelete }) {
             }
             onClose();
           }}
-          className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-[14px] font-medium text-[#101728] transition-colors hover:bg-[#f8f9fc]"
+          className="flex w-full items-center gap-2 px-4 py-2 text-left text-[14px] font-medium leading-5 text-[#101728] transition-colors hover:bg-[#f8f9fc]"
         >
-          <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+          <span className="flex h-4 w-[14.17px] shrink-0 items-center justify-center">
             <img
               src={item.icon}
               alt=""
-              className="h-4 w-4 object-contain"
+              className="h-4 w-[14.17px] object-contain"
               aria-hidden="true"
             />
           </span>
@@ -99,38 +155,75 @@ function ContextMenu({ onClose, onEdit, onDisable, onDelete }) {
 }
 
 export default function DeviceCard({
+  id,
   name,
   group,
   description,
   location,
   date,
   status,
+  generatedCode,
+  onDelete,
+  onUpdate,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isDisabled, setIsDisabled] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [terminalOpen, setTerminalOpen] = useState(false);
   const [deviceData, setDeviceData] = useState({
     name,
     group,
     description,
+    generatedCode,
   });
 
-  // Status color changes to gray when disabled
+  useEffect(() => {
+    setDeviceData({
+      name,
+      group,
+      description,
+      generatedCode,
+    });
+  }, [description, generatedCode, group, name]);
+
+  const isInstallCard = status === "to-install";
+
   const statusColor = isDisabled
     ? "#d1d5db"
     : status === "online"
       ? "#60FAC4"
-      : "#FF7373";
+      : status === "to-install"
+        ? "#D6DAE5"
+        : "#FF7373";
 
   const handleDelete = () => {
-    console.log("Deleted");
+    onDelete?.(id);
+    setDeleteModalOpen(false);
+  };
+
+  const terminalDevice = {
+    id,
+    name: deviceData.name,
+    group: deviceData.group,
+    location,
+    date,
+    status: isDisabled ? "disabled" : status,
   };
 
   return (
     <>
       <article
-        className={`flex h-[223px] w-full items-center justify-center rounded-[15px] border transition-all duration-300 ease-out p-[28px_20px_12px_17px] ${
+        role="button"
+        tabIndex={0}
+        onClick={() => setTerminalOpen(true)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setTerminalOpen(true);
+          }
+        }}
+        className={`flex h-[223px] w-full cursor-pointer items-center justify-center rounded-[15px] border p-[28px_20px_12px_17px] transition-all duration-300 ease-out ${
           isDisabled
             ? "border-[#d1d5db] bg-black/10"
             : "border-[#e5e7eb] bg-white hover:shadow-[0_20px_40px_rgba(0,0,0,0.15),0_8px_16px_rgba(0,0,0,0.10)]"
@@ -139,7 +232,7 @@ export default function DeviceCard({
         <div className="flex h-[183px] w-[278px] flex-col justify-between">
           <div className="flex items-start justify-between">
             <div className="flex min-w-0 items-start gap-[12px]">
-              <DeviceGlyph statusColor={statusColor} />
+              <DeviceGlyph statusColor={statusColor} isInstallCard={isInstallCard} />
 
               <div className="min-w-0">
                 <div className="flex h-[39.884px] flex-col justify-center self-stretch">
@@ -171,7 +264,10 @@ export default function DeviceCard({
             <div className="relative">
               <button
                 type="button"
-                onClick={() => setMenuOpen((value) => !value)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setMenuOpen((value) => !value);
+                }}
                 className="flex h-[27.364px] w-[26.984px] items-center justify-center transition-opacity hover:opacity-70"
                 aria-label="Device actions"
               >
@@ -186,6 +282,7 @@ export default function DeviceCard({
               </button>
               {menuOpen ? (
                 <ContextMenu
+                  isInstallCard={isInstallCard}
                   onClose={() => setMenuOpen(false)}
                   onEdit={() => setEditModalOpen(true)}
                   onDisable={() => setIsDisabled(true)}
@@ -195,39 +292,44 @@ export default function DeviceCard({
             </div>
           </div>
 
-          <div
-            className={`flex h-[58px] items-start gap-[10px] self-stretch rounded-[8px] pb-[13px] pl-[15px] pr-[14px] pt-[12px] border ${
-              isDisabled
-                ? "bg-black/10 border-[#d1d5db]"
-                : "bg-gradient-to-r from-[#f0f4f8] to-[#f9fafb] border-[#e5e7eb]"
-            }`}
-          >
-            <div className="flex h-[32px] w-[150px] items-center gap-[10px]">
-              <MarkerPinIcon />
-              <span
-                className={`truncate text-[14px] font-medium ${
-                  isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
-                }`}
-              >
-                {location}
-              </span>
-            </div>
-
-            <div
-              className={`h-[28px] w-px ${isDisabled ? "bg-[#d1d5db]" : "bg-[#d1d5db]"}`}
+          {isInstallCard ? (
+            <InstallFooter
+              location={location || "Pune"}
+              date={date || "23 Mar 26"}
             />
+          ) : (
+            <div
+              className={`flex h-[58px] items-start gap-[10px] self-stretch rounded-[8px] border pb-[13px] pl-[15px] pr-[14px] pt-[12px] ${
+                isDisabled
+                  ? "border-[#d1d5db] bg-black/10"
+                  : "border-[#e5e7eb] bg-gradient-to-r from-[#f0f4f8] to-[#f9fafb]"
+              }`}
+            >
+              <div className="flex h-[32px] w-[150px] items-center gap-[10px]">
+                <MarkerPinIcon />
+                <span
+                  className={`truncate text-[14px] font-medium ${
+                    isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
+                  }`}
+                >
+                  {location}
+                </span>
+              </div>
 
-            <div className="flex h-[32px] w-[117px] items-center gap-[10px]">
-              <ClockIcon />
-              <span
-                className={`truncate text-[14px] font-medium ${
-                  isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
-                }`}
-              >
-                {date}
-              </span>
+              <div className={`h-[28px] w-px ${isDisabled ? "bg-[#d1d5db]" : "bg-[#d1d5db]"}`} />
+
+              <div className="flex h-[32px] w-[117px] items-center gap-[10px]">
+                <ClockIcon />
+                <span
+                  className={`truncate text-[14px] font-medium ${
+                    isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
+                  }`}
+                >
+                  {date}
+                </span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </article>
 
@@ -241,17 +343,31 @@ export default function DeviceCard({
         open={editModalOpen}
         onClose={() => setEditModalOpen(false)}
         onConfirm={(values) => {
-          setDeviceData((current) => ({
-            ...current,
+          const nextDeviceData = {
+            name: values.name,
             group: values.group,
             description: values.description,
+          };
+
+          setDeviceData((current) => ({
+            ...current,
+            ...nextDeviceData,
           }));
+          onUpdate?.(id, nextDeviceData);
           setEditModalOpen(false);
         }}
         initialValues={deviceData}
         title="Edit Device Details"
         confirmLabel="Save"
       />
+
+      <DeviceTerminalModal
+        open={terminalOpen}
+        device={terminalDevice}
+        onClose={() => setTerminalOpen(false)}
+      />
     </>
   );
 }
+
+

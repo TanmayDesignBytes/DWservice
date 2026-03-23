@@ -88,7 +88,7 @@ function LogOutIcon() {
   );
 }
 
-function ProfileCard() {
+function ProfileCard({ onSignOut }) {
   return (
     <div className="absolute right-0 top-full z-[60] -mt-[7px] flex w-full sm:w-[250px] flex-col overflow-hidden rounded-[16px] border border-[#e5e7eb] bg-white shadow-[0_25px_50px_rgba(0,0,0,0.15),0_10px_20px_rgba(0,0,0,0.1)]">
       <div className="flex h-[94px] w-full shrink-0 flex-col items-start border-b border-[#e5e7eb] bg-gradient-to-r from-[#ede9fe] to-[#e0e7ff] px-4 py-3">
@@ -131,6 +131,7 @@ function ProfileCard() {
 
         <button
           type="button"
+          onClick={onSignOut}
           className="flex min-h-[54px] self-stretch items-center bg-white px-4 sm:px-0 py-1 text-left transition-all duration-200 hover:bg-[#f9fafb]"
         >
           <div className="flex flex-1 items-center gap-2 sm:pl-5 pr-[6px] py-[2px]">
@@ -337,6 +338,7 @@ function CustomScrollbar({ children }) {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     updateScrollState();
 
     const element = scrollRef.current;
@@ -485,6 +487,7 @@ export default function DashboardLayout({
   children,
   pathname,
   onNavigate,
+  onSignOut,
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const profileMenuRef = useRef(null);
@@ -504,9 +507,9 @@ export default function DashboardLayout({
   }, []);
 
   return (
-    <div className="dashboard-stage min-h-screen px-3 py-3 sm:px-4 sm:py-4 lg:px-0 lg:py-0 -ml-[5px]">
+    <div className="dashboard-stage min-h-[100dvh] px-3 py-3 sm:px-4 sm:py-4 lg:px-0 lg:py-0 -ml-[5px]">
       <div className="flex w-full flex-col">
-        <div className="dashboard-shell flex min-h-screen w-full flex-col overflow-hidden rounded-none bg-white sm:min-h-screen lg:min-h-screen">
+        <div className="dashboard-shell flex h-[calc(100dvh-24px)] min-h-[calc(100dvh-24px)] w-full flex-col overflow-hidden rounded-none bg-white sm:h-[calc(100dvh-32px)] sm:min-h-[calc(100dvh-32px)] lg:h-[100dvh] lg:min-h-[100dvh]">
           <header className="relative z-[30] flex h-[74px] min-h-[74px] items-center justify-between bg-gradient-to-r from-white to-[#fafbfc] px-4 py-4 sm:px-6 lg:px-5">
             <DashboardLogo />
 
@@ -520,7 +523,14 @@ export default function DashboardLayout({
                 >
                   <UserAvatar />
                 </button>
-                {profileOpen ? <ProfileCard /> : null}
+                {profileOpen ? (
+                  <ProfileCard
+                    onSignOut={() => {
+                      setProfileOpen(false);
+                      onSignOut?.();
+                    }}
+                  />
+                ) : null}
               </div>
             </div>
           </header>
@@ -530,7 +540,7 @@ export default function DashboardLayout({
               <Sidebar pathname={pathname} onNavigate={onNavigate} />
             </div>
 
-            <div className="dashboard-panel flex min-h-[600px] w-full flex-1 flex-col self-start rounded-lg sm:rounded-[21px] border-t border-[#d7dee8] bg-white lg:mt-0 lg:max-w-full lg:flex-1">
+            <div className="dashboard-panel flex min-h-0 w-full flex-1 flex-col self-stretch rounded-lg sm:rounded-[21px] border-t border-[#d7dee8] bg-white lg:mt-0 lg:max-w-full lg:flex-1 lg:min-h-[600px]">
               {toolbar ? (
                 <div className="z-20 px-4 sm:px-6 md:px-6 lg:px-10 pb-5 pt-5">
                   {toolbar}

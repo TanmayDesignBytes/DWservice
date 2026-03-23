@@ -2,6 +2,7 @@ export const filterTabs = [
   { id: "all", label: "All" },
   { id: "available", label: "Available" },
   { id: "unavailable", label: "Unavailable" },
+  { id: "to-install", label: "To Install" },
 ];
 
 export const devices = [
@@ -285,3 +286,5 @@ export const devices = [
     status: "offline",
   },
 ];
+
+
