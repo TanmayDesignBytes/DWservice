@@ -2,19 +2,58 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import DashboardLogo from "@/components/dashboard/DashboardLogo";
+import { getUserInfo } from "@/lib/api";
 
 const SEARCH_BUTTON_SIZE = 36;
 const SEARCH_EXPANDED_WIDTH = 250;
 const CUSTOM_SCROLLBAR_WIDTH = 10;
 const CUSTOM_SCROLLBAR_THUMB_HEIGHT = 364;
 
-function UserAvatar() {
+const DEFAULT_USER_PROFILE = {
+  username: "Olivia Rhye",
+  email: "olivia@untitledui.com",
+  firstLetter: "O",
+  profileImage: "",
+};
+
+function AvatarFace({ userProfile, className = "" }) {
+  const profileImage =
+    userProfile.profileImage || userProfile.avatarUrl || userProfile.photoUrl || "";
+  const firstLetter = (userProfile.firstLetter || userProfile.username || "U")
+    .trim()
+    .charAt(0)
+    .toUpperCase();
+
+  if (profileImage) {
+    return (
+      <img
+        src={profileImage}
+        alt={userProfile.username || "User avatar"}
+        className={className}
+      />
+    );
+  }
+
+  return (
+    <div
+      aria-label={userProfile.username || "User avatar"}
+      className={[
+        "flex items-center justify-center rounded-full bg-[linear-gradient(135deg,#2970ff_0%,#6aa4ff_100%)]",
+        "font-['Satoshi'] font-bold text-white",
+        className,
+      ].join(" ")}
+    >
+      {firstLetter}
+    </div>
+  );
+}
+
+function UserAvatar({ userProfile }) {
   return (
     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[linear-gradient(135deg,#ffffff_0%,#e7efff_48%,#ffffff_100%)] p-[2px] shadow-[0_8px_18px_rgba(34,82,214,0.18)]">
-      <img
-        src="/Avatar.png"
-        alt="User avatar"
-        className="h-full w-full rounded-full object-cover"
+      <AvatarFace
+        userProfile={userProfile}
+        className="h-full w-full rounded-full object-cover text-[15px]"
       />
     </div>
   );
@@ -88,17 +127,16 @@ function LogOutIcon() {
   );
 }
 
-function ProfileCard({ onSignOut }) {
+function ProfileCard({ onSignOut, userProfile }) {
   return (
     <div className="absolute right-0 top-full z-[60] -mt-[7px] flex w-full sm:w-[250px] flex-col overflow-hidden rounded-[16px] border border-[#e5e7eb] bg-white shadow-[0_25px_50px_rgba(0,0,0,0.15),0_10px_20px_rgba(0,0,0,0.1)]">
       <div className="flex h-[94px] w-full shrink-0 flex-col items-start border-b border-[#e5e7eb] bg-gradient-to-r from-[#ede9fe] to-[#e0e7ff] px-4 py-3">
         <div className="flex h-full w-full sm:w-[203px] flex-1 items-center justify-center gap-3 self-center">
           <div className="relative flex h-[65px] w-[65px] items-center justify-center">
             <div className="absolute inset-0 rounded-[200px] border-[0.75px] border-[rgba(3,15,14,0.08)] opacity-[0.08]" />
-            <img
-              src="/Avatar.png"
-              alt="Olivia Rhye"
-              className="h-full w-full rounded-full object-cover shadow-[0_4px_12px_rgba(0,0,0,0.15)]"
+            <AvatarFace
+              userProfile={userProfile}
+              className="h-full w-full rounded-full object-cover text-[28px] shadow-[0_4px_12px_rgba(0,0,0,0.15)]"
             />
             <button
               type="button"
@@ -115,7 +153,7 @@ function ProfileCard({ onSignOut }) {
         <div className="flex min-h-[100px] self-stretch flex-col items-center gap-[18px] border-b border-[#eaecf0] px-4 sm:px-0 py-5">
           <div className="flex w-full flex-col items-start sm:px-5">
             <div className="self-stretch font-['Satoshi'] text-[14px] font-bold leading-5 text-[#475467]">
-              Olivia Rhye
+              {userProfile.username}
             </div>
 
             <div className="mt-[10px] flex items-center gap-[5px] self-stretch">
@@ -123,7 +161,7 @@ function ProfileCard({ onSignOut }) {
                 <MailIcon />
               </div>
               <div className="w-[201px] font-['Satoshi'] text-[14px] font-normal leading-5 text-[#475467]">
-                olivia@untitledui.com
+                {userProfile.email}
               </div>
             </div>
           </div>
@@ -490,6 +528,7 @@ export default function DashboardLayout({
   onSignOut,
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState(DEFAULT_USER_PROFILE);
   const profileMenuRef = useRef(null);
 
   useEffect(() => {
@@ -504,6 +543,40 @@ export default function DashboardLayout({
 
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadUserProfile = async () => {
+      try {
+        const response = await getUserInfo();
+        const profile = response?.data;
+
+        if (!isMounted || !profile) {
+          return;
+        }
+
+        setUserProfile({
+          username: profile.username || DEFAULT_USER_PROFILE.username,
+          email: profile.email || DEFAULT_USER_PROFILE.email,
+          firstLetter: profile.firstLetter || DEFAULT_USER_PROFILE.firstLetter,
+          profileImage:
+            profile.profileImage ||
+            profile.avatarUrl ||
+            profile.photoUrl ||
+            DEFAULT_USER_PROFILE.profileImage,
+        });
+      } catch {
+        // Keep the existing profile placeholder when the backend/token is unavailable.
+      }
+    };
+
+    loadUserProfile();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
@@ -521,10 +594,11 @@ export default function DashboardLayout({
                   onClick={() => setProfileOpen((value) => !value)}
                   aria-label="Open profile menu"
                 >
-                  <UserAvatar />
+                  <UserAvatar userProfile={userProfile} />
                 </button>
                 {profileOpen ? (
                   <ProfileCard
+                    userProfile={userProfile}
                     onSignOut={() => {
                       setProfileOpen(false);
                       onSignOut?.();

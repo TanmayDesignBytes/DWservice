@@ -4,6 +4,14 @@ export const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL
 ).replace(/\/$/, "");
 
+function getStoredAuthToken() {
+  return (
+    window.localStorage.getItem("dws.auth.token") ||
+    window.sessionStorage.getItem("dws.auth.session.token") ||
+    ""
+  );
+}
+
 export class ApiError extends Error {
   constructor(message, status, data) {
     super(message);
@@ -69,5 +77,17 @@ export function resetPassword(payload) {
   return apiRequest("/auth/reset-password", {
     method: "POST",
     body: payload,
+  });
+}
+
+export function getMyDevices(token = getStoredAuthToken()) {
+  return apiRequest("/device/my-devices", {
+    token,
+  });
+}
+
+export function getUserInfo(token = getStoredAuthToken()) {
+  return apiRequest("/auth/info", {
+    token,
   });
 }

@@ -68,22 +68,22 @@ function DownloadInstallIcon() {
   );
 }
 
-function InstallFooter({ location, date }) {
+function InstallFooter({ generatedCode }) {
   return (
     <div className="flex h-[58px] items-start gap-[10px] self-stretch rounded-[8px] border border-[#e5e7eb] bg-gradient-to-r from-[#f0f4f8] to-[#f9fafb] pb-[13px] pl-[15px] pr-[14px] pt-[12px]">
       <div className="flex h-[32px] w-[150px] items-center gap-[10px]">
-        <MarkerPinIcon />
-        <span className="truncate text-[14px] font-medium text-[#1f2937]">
-          {location}
+        <InstallInfoIcon />
+        <span className="truncate font-['DM_Sans'] text-[14px] font-medium leading-[42px] tracking-[-0.28px] text-[#000000]">
+          {generatedCode}
         </span>
       </div>
 
       <div className="h-[28px] w-px bg-[#d1d5db]" />
 
       <div className="flex h-[32px] w-[117px] items-center gap-[10px]">
-        <ClockIcon />
-        <span className="truncate text-[14px] font-medium text-[#1f2937]">
-          {date}
+        <DownloadInstallIcon />
+        <span className="truncate font-['DM_Sans'] text-[14px] font-medium leading-[42px] tracking-[-0.28px] text-[#000000]">
+          To Install
         </span>
       </div>
     </div>
@@ -294,8 +294,7 @@ export default function DeviceCard({
 
           {isInstallCard ? (
             <InstallFooter
-              location={location || "Pune"}
-              date={date || "23 Mar 26"}
+              generatedCode={deviceData.generatedCode || "212345678"}
             />
           ) : (
             <div
@@ -369,5 +368,4 @@ export default function DeviceCard({
     </>
   );
 }
-
 

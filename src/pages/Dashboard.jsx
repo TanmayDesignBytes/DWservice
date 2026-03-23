@@ -2,6 +2,7 @@
 import DeviceCard from "@/components/DeviceCard";
 import AddDeviceModal from "@/components/dashboard/AddDeviceModal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import { getMyDevices } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { devices as initialDevices, filterTabs } from "@/data/dashboard";
 
@@ -13,6 +14,36 @@ const groupOptions = [
 
 function generateInstallCode() {
   return String(Math.floor(10000000 + Math.random() * 90000000));
+}
+
+function formatDeviceDate(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "2-digit",
+  }).format(date);
+}
+
+function mapApiDevice(device) {
+  return {
+    id: device.id ?? device.device_id ?? Date.now(),
+    name: device.name || device.hostname || "Unnamed Device",
+    group: device.os || "Device",
+    description: device.device_id || device.hostname || "",
+    location: device.hostname || device.ip_address || "",
+    date: formatDeviceDate(device.last_connected || device.created_at),
+    status: device.is_online ? "online" : "offline",
+  };
 }
 
 export default function Dashboard({
@@ -78,6 +109,31 @@ export default function Dashboard({
     window.addEventListener("resize", updateActiveTabStyle);
     return () => window.removeEventListener("resize", updateActiveTabStyle);
   }, [updateActiveTabStyle]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadDevices = async () => {
+      try {
+        const response = await getMyDevices();
+        const apiDevices = Array.isArray(response?.all)
+          ? response.all.map(mapApiDevice)
+          : [];
+
+        if (isMounted && apiDevices.length > 0) {
+          setDeviceList(apiDevices);
+        }
+      } catch {
+        // Keep the existing static list when the backend is unavailable.
+      }
+    };
+
+    loadDevices();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const filteredDevices = useMemo(() => {
     return deviceList.filter((device) => {
@@ -308,4 +364,3 @@ export default function Dashboard({
     </>
   );
 }
-
