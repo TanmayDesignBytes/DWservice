@@ -2,57 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import AddGroupModal from "@/components/dashboard/AddGroupModal";
 import DeleteModal from "./DeleteModal";
 
-const groupCards = [
-  {
-    id: 1,
-    name: "Group 1",
-    label: "GCU",
-    description: "I've updated the user interface",
-  },
-  {
-    id: 2,
-    name: "Group 2",
-    label: "GCU",
-    description: "I've updated the user interface",
-  },
-  {
-    id: 3,
-    name: "Group 3",
-    label: "GCU",
-    description: "I've updated the user interface",
-  },
-  {
-    id: 4,
-    name: "Group 4",
-    label: "GCU",
-    description: "I've updated the user interface",
-  },
-  {
-    id: 5,
-    name: "Group 5",
-    label: "GCU",
-    description: "I've updated the user interface",
-  },
-  {
-    id: 6,
-    name: "Group 6",
-    label: "GCU",
-    description: "I've updated the user interface",
-  },
-  {
-    id: 7,
-    name: "Group 7",
-    label: "GCU",
-    description: "I've updated the user interface",
-  },
-  {
-    id: 8,
-    name: "Group 8",
-    label: "GCU",
-    description: "I've updated the user interface",
-  },
-];
-
 const groupMenuItems = [
   { icon: "/edit-03.svg", label: "Edit" },
   { icon: "/trash-01.svg", label: "Delete" },
@@ -210,24 +159,34 @@ function GroupCardItem({ group, onDelete }) {
   );
 }
 
-export default function GroupCardGrid() {
-  const [groups, setGroups] = useState(groupCards);
+export default function GroupCardGrid({ initialGroups = [] }) {
+  const [groups, setGroups] = useState(initialGroups);
+
+  useEffect(() => {
+    setGroups(initialGroups);
+  }, [initialGroups]);
 
   return (
     <div className="pt-[24.5px]">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-4 md:gap-4 lg:gap-[15px]">
-        {groups.map((group) => (
-          <GroupCardItem
-            key={group.id}
-            group={group}
-            onDelete={(groupId) => {
-              setGroups((current) =>
-                current.filter((item) => item.id !== groupId),
-              );
-            }}
-          />
-        ))}
-      </div>
+      {groups.length === 0 ? (
+        <div className="flex h-[220px] items-center justify-center rounded-[15px] border border-[rgba(217,217,217,0.5)] bg-white text-center text-[16px] font-medium text-[#667085]">
+          No groups found from your device cards yet.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-4 md:gap-4 lg:gap-[15px]">
+          {groups.map((group) => (
+            <GroupCardItem
+              key={group.id}
+              group={group}
+              onDelete={(groupId) => {
+                setGroups((current) =>
+                  current.filter((item) => item.id !== groupId),
+                );
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

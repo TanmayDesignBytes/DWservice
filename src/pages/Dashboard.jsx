@@ -2,19 +2,9 @@
 import DeviceCard from "@/components/DeviceCard";
 import AddDeviceModal from "@/components/dashboard/AddDeviceModal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import { getMyDevices } from "@/lib/api";
+import { generateDeviceCode, getMyDevices, searchDevices } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { devices as initialDevices, filterTabs } from "@/data/dashboard";
-
-const groupOptions = [
-  { id: "GCU", label: "GCU" },
-  { id: "Microgrid", label: "Microgrid" },
-  { id: "Koel", label: "Koel" },
-];
-
-function generateInstallCode() {
-  return String(Math.floor(10000000 + Math.random() * 90000000));
-}
 
 function formatDeviceDate(value) {
   if (!value) {
@@ -46,6 +36,64 @@ function mapApiDevice(device) {
   };
 }
 
+function filterDevicesByQuery(devices, query) {
+  const normalizedQuery = String(query || "").trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return devices;
+  }
+
+  return devices.filter((device) =>
+    [
+      device.name,
+      device.group,
+      device.description,
+      device.location,
+      device.date,
+    ]
+      .filter(Boolean)
+      .some((value) =>
+        String(value).toLowerCase().includes(normalizedQuery),
+      ),
+  );
+}
+
+function getSearchResponseItems(response) {
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  if (Array.isArray(response?.all)) {
+    return response.all;
+  }
+
+  if (Array.isArray(response?.data?.all)) {
+    return response.data.all;
+  }
+
+  if (Array.isArray(response?.data)) {
+    return response.data;
+  }
+
+  if (Array.isArray(response?.devices)) {
+    return response.devices;
+  }
+
+  if (Array.isArray(response?.data?.devices)) {
+    return response.data.devices;
+  }
+
+  if (Array.isArray(response?.results)) {
+    return response.results;
+  }
+
+  if (Array.isArray(response?.data?.results)) {
+    return response.data.results;
+  }
+
+  return null;
+}
+
 export default function Dashboard({
   pathname,
   onNavigate,
@@ -54,6 +102,10 @@ export default function Dashboard({
   const [selectedTab, setSelectedTab] = useState("all");
   const [showAddDevice, setShowAddDevice] = useState(false);
   const [deviceList, setDeviceList] = useState(initialDevices);
+  const [isAddingDevice, setIsAddingDevice] = useState(false);
+  const [addDeviceError, setAddDeviceError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
 
@@ -65,6 +117,25 @@ export default function Dashboard({
     left: 0,
     visible: false,
   });
+
+  const groupOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          ["GCU", "Koel"].concat(
+            deviceList
+              .map((device) => String(device.group || "").trim())
+              .filter(Boolean),
+          ),
+        ),
+      )
+        .sort((left, right) => left.localeCompare(right))
+        .map((groupName) => ({
+          id: groupName,
+          label: groupName,
+        })),
+    [deviceList],
+  );
 
   useEffect(() => {
     const handleClick = (event) => {
@@ -135,8 +206,43 @@ export default function Dashboard({
     };
   }, []);
 
+  useEffect(() => {
+    const normalizedQuery = searchQuery.trim();
+
+    if (!normalizedQuery) {
+      setSearchResults(null);
+      return undefined;
+    }
+
+    let isCancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const response = await searchDevices(normalizedQuery);
+        const searchItems = getSearchResponseItems(response);
+        const apiDevices = Array.isArray(searchItems)
+          ? searchItems.map(mapApiDevice)
+          : filterDevicesByQuery(deviceList, normalizedQuery);
+
+        if (!isCancelled) {
+          setSearchResults(apiDevices);
+        }
+      } catch {
+        if (!isCancelled) {
+          setSearchResults(filterDevicesByQuery(deviceList, normalizedQuery));
+        }
+      }
+    }, 350);
+
+    return () => {
+      isCancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [deviceList, searchQuery]);
+
+  const visibleDeviceList = searchResults ?? deviceList;
+
   const filteredDevices = useMemo(() => {
-    return deviceList.filter((device) => {
+    return visibleDeviceList.filter((device) => {
       if (selectedGroup && device.group !== selectedGroup) {
         return false;
       }
@@ -155,10 +261,34 @@ export default function Dashboard({
 
       return true;
     });
-  }, [deviceList, selectedGroup, selectedTab]);
+  }, [selectedGroup, selectedTab, visibleDeviceList]);
 
   const emptyStateMessage = useMemo(() => {
     if (filteredDevices.length === 0) {
+      if (searchQuery.trim() && selectedGroup && selectedTab === "available") {
+        return `No available search results in ${selectedGroup}`;
+      }
+      if (searchQuery.trim() && selectedGroup && selectedTab === "unavailable") {
+        return `No unavailable search results in ${selectedGroup}`;
+      }
+      if (searchQuery.trim() && selectedGroup && selectedTab === "to-install") {
+        return `No devices to install found in ${selectedGroup}`;
+      }
+      if (searchQuery.trim() && selectedGroup) {
+        return `No search results in ${selectedGroup}`;
+      }
+      if (searchQuery.trim() && selectedTab === "available") {
+        return "No available search results";
+      }
+      if (searchQuery.trim() && selectedTab === "unavailable") {
+        return "No unavailable search results";
+      }
+      if (searchQuery.trim() && selectedTab === "to-install") {
+        return "No devices to install found";
+      }
+      if (searchQuery.trim()) {
+        return "No devices found for this search";
+      }
       if (selectedGroup && selectedTab === "available") {
         return `No available devices in ${selectedGroup}`;
       }
@@ -179,28 +309,50 @@ export default function Dashboard({
       }
     }
     return null;
-  }, [filteredDevices.length, selectedGroup, selectedTab]);
+  }, [filteredDevices.length, searchQuery, selectedGroup, selectedTab]);
 
   const handleOpenAddDevice = useCallback(() => {
+    setAddDeviceError("");
     setShowAddDevice(true);
   }, []);
 
-  const handleConfirmAddDevice = useCallback((values) => {
-    const newDevice = {
-      id: Date.now(),
-      name: values.name.trim() || "15- HAL",
-      group: values.group,
-      description: values.description.trim() || "I've updated the user interface",
-      location: "",
-      date: "",
-      status: "to-install",
-      generatedCode: generateInstallCode(),
-    };
+  const handleConfirmAddDevice = useCallback(async (values) => {
+    setIsAddingDevice(true);
+    setAddDeviceError("");
 
-    setDeviceList((current) => [newDevice, ...current]);
-    setShowAddDevice(false);
-    setSelectedGroup(null);
-    setSelectedTab("to-install");
+    try {
+      const payload = {
+        deviceName: values.name.trim(),
+        group: values.group.trim(),
+        description: values.description.trim(),
+      };
+
+      const response = await generateDeviceCode(payload);
+      const newDevice = {
+        id: response?.deviceId ?? response?.id ?? Date.now(),
+        name: response?.deviceName || payload.deviceName || "15- HAL",
+        group: response?.group || payload.group || "Device",
+        description:
+          response?.description ||
+          payload.description ||
+          "I've updated the user interface",
+        location: "",
+        date: "",
+        status: "to-install",
+        generatedCode: String(response?.code || ""),
+      };
+
+      setDeviceList((current) => [newDevice, ...current]);
+      setShowAddDevice(false);
+      setSelectedGroup(null);
+      setSelectedTab("to-install");
+    } catch (error) {
+      setAddDeviceError(
+        error?.message || "Unable to generate code right now. Please try again.",
+      );
+    } finally {
+      setIsAddingDevice(false);
+    }
   }, []);
 
   const handleDeleteDevice = useCallback((deviceId) => {
@@ -331,6 +483,8 @@ export default function Dashboard({
         pathname={pathname}
         onNavigate={onNavigate}
         onSignOut={onSignOut}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
       >
         <div className="shrink-0 pb-4 pt-1 pl-4 pr-4 sm:pb-6 sm:pt-3 sm:pl-6 sm:pr-6 md:pb-7 md:pt-4 md:pl-8 md:pr-8 lg:pt-[6px] lg:pl-[43px] lg:pr-[41px]">
           {emptyStateMessage ? (
@@ -358,8 +512,17 @@ export default function Dashboard({
 
       <AddDeviceModal
         open={showAddDevice}
-        onClose={() => setShowAddDevice(false)}
+        onClose={() => {
+          if (isAddingDevice) {
+            return;
+          }
+
+          setShowAddDevice(false);
+          setAddDeviceError("");
+        }}
         onConfirm={handleConfirmAddDevice}
+        isSubmitting={isAddingDevice}
+        errorMessage={addDeviceError}
       />
     </>
   );

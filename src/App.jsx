@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Dashboard from "@/pages/Dashboard";
 import Group from "@/pages/Group";
 import Login from "@/pages/Login";
+import { logoutUser } from "@/lib/api";
 
 const LOCAL_TOKEN_KEY = "dws.auth.token";
 const SESSION_TOKEN_KEY = "dws.auth.session.token";
@@ -55,11 +56,17 @@ function App() {
     navigate("/dashboard");
   };
 
-  const handleSignOut = () => {
-    clearStoredTokens();
-    setAuthToken(null);
-    window.history.pushState({}, "", "/");
-    setPathname("/");
+  const handleSignOut = async () => {
+    try {
+      await logoutUser(authToken || getStoredToken());
+    } catch {
+      // Always clear local auth so the user can still leave the session.
+    } finally {
+      clearStoredTokens();
+      setAuthToken(null);
+      window.history.pushState({}, "", "/");
+      setPathname("/");
+    }
   };
 
   if (!authToken) {

@@ -184,8 +184,7 @@ function ProfileCard({ onSignOut, userProfile }) {
   );
 }
 
-function ExpandableSearchButton() {
-  const [query, setQuery] = useState("");
+function ExpandableSearchButton({ value = "", onChange }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -230,7 +229,7 @@ function ExpandableSearchButton() {
   };
 
   const handleKeyDown = (event) => {
-    if (event.key === "Enter" || event.key === "Escape") {
+    if (event.key === "Escape") {
       event.preventDefault();
       collapse();
     }
@@ -275,9 +274,9 @@ function ExpandableSearchButton() {
         <input
           ref={inputRef}
           type="text"
-          value={query}
+          value={value}
           placeholder="Search..."
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => onChange?.(event.target.value)}
           onFocus={() => {
             open();
             setIsFocused(true);
@@ -526,6 +525,8 @@ export default function DashboardLayout({
   pathname,
   onNavigate,
   onSignOut,
+  searchValue = "",
+  onSearchChange,
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [userProfile, setUserProfile] = useState(DEFAULT_USER_PROFILE);
@@ -587,7 +588,10 @@ export default function DashboardLayout({
             <DashboardLogo />
 
             <div className="flex items-center gap-3">
-              <ExpandableSearchButton />
+              <ExpandableSearchButton
+                value={searchValue}
+                onChange={onSearchChange}
+              />
               <div ref={profileMenuRef} className="relative z-[40]">
                 <button
                   type="button"

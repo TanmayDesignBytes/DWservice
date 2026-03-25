@@ -80,8 +80,31 @@ export function resetPassword(payload) {
   });
 }
 
+export function logoutUser(token = getStoredAuthToken()) {
+  return apiRequest("/auth/logout", {
+    method: "POST",
+    token,
+  });
+}
+
 export function getMyDevices(token = getStoredAuthToken()) {
   return apiRequest("/device/my-devices", {
+    token,
+  });
+}
+
+export function generateDeviceCode(payload, token = getStoredAuthToken()) {
+  return apiRequest("/device/generate-code", {
+    method: "POST",
+    body: payload,
+    token,
+  });
+}
+
+export function searchDevices(query, token = getStoredAuthToken()) {
+  const params = new URLSearchParams({ q: query });
+
+  return apiRequest(`/device/search?${params.toString()}`, {
     token,
   });
 }
