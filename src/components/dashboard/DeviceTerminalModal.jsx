@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { sendTerminalCommand } from "@/lib/api";
 
 function formatPrompt(session) {
   const host =
@@ -19,82 +20,67 @@ function formatPrompt(session) {
   };
 }
 
-function getBootBanner(device, session, promptConfig) {
-  const safeName = device.name || "Raspberry Pi";
-  const host = promptConfig.host;
-  const user = promptConfig.user;
-  const ipAddress = session?.ipAddress || "127.0.0.1";
-  const kernel = session?.kernel || "Linux 6.1 armv7l";
-
+function getHelpOutput(device) {
   return [
-    `login as: ${user}`,
-    `${user}@${ipAddress}'s password:`,
-    `Linux ${host} ${kernel}`,
+    "Available commands:",
+    "help      show supported commands",
+    "clear     clear the terminal",
+    "exit      close the terminal",
     "",
-    "The programs included with the Debian GNU/Linux system are free software;",
-    "the exact distribution terms for each program are described in the",
-    "individual files in /usr/share/doc/*/copyright.",
-    "",
-    "Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent",
-    "permitted by applicable law.",
-    `Last login: Fri Mar 20 11:05:14 2026 from ${ipAddress}`,
-    `${safeName} remote shell ready.`,
+    "All other commands are sent to the backend device command API.",
+    `Example: cd DWcode`,
+    `Target agent: ${device.deviceIdentifier || "not connected"}`,
   ];
 }
 
-function getCommandOutput(command, device, session, promptConfig) {
-  switch (command) {
-    case "help":
-      return [
-        "Available commands:",
-        "help      show supported commands",
-        "status    print current device details",
-        "ping      simulate a connectivity check",
-        "connect   show backend integration hint",
-        "uname -a  print kernel information",
-        "ls        list demo folders",
-        "pwd       print current directory",
-        "clear     clear the terminal",
-        "exit      close the terminal",
-      ];
-    case "status":
-      return [
-        `device=${device.name}`,
-        `group=${device.group}`,
-        `location=${device.location}`,
-        `last_update=${device.date}`,
-        `state=${device.status}`,
-        `hostname=${session?.hostname || promptConfig.host}`,
-      ];
-    case "ping":
-      return [
-        `PING ${device.name.toLowerCase().replace(/\s+/g, "-")} (${session?.ipAddress || "127.0.0.1"}) 56(84) bytes of data.`,
-        `64 bytes from ${session?.ipAddress || "127.0.0.1"}: icmp_seq=1 ttl=64 time=18.4 ms`,
-        "",
-        `--- ${session?.ipAddress || "127.0.0.1"} ping statistics ---`,
-        "1 packets transmitted, 1 received, 0% packet loss",
-      ];
-    case "connect":
-      return [
-        "Frontend terminal session established.",
-        "Interactive commands are running in UI preview mode.",
-      ];
-    case "uname -a":
-      return [session?.kernel ? `Linux ${promptConfig.host} ${session.kernel}` : `Linux ${promptConfig.host}`];
-    case "ls":
-      return ["configs  logs  scripts  telemetry  updates"];
-    case "pwd":
-      return [promptConfig.cwd];
-    case "hostname":
-      return [promptConfig.host];
-    case "whoami":
-      return [promptConfig.user];
-    default:
-      return [
-        `-bash: ${command}: command not found`,
-        'Type "help" to see available commands.',
-      ];
+function extractTerminalOutput(response) {
+  const candidates = [
+    response?.output,
+    response?.stdout,
+    response?.result,
+    response?.response,
+    response?.data?.output,
+    response?.data?.stdout,
+    response?.data?.result,
+    response?.data?.response,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+
+    if (Array.isArray(candidate) && candidate.length > 0) {
+      return candidate.join("\r\n");
+    }
   }
+
+  return "";
+}
+
+function shouldForwardRawKey(data) {
+  if (!data) {
+    return false;
+  }
+
+  if (data === "\t") {
+    return true;
+  }
+
+  if (data.length > 1) {
+    return true;
+  }
+
+  const code = data.charCodeAt(0);
+  return code < 32 && data !== "\r" && data !== "\u007f" && data !== "\b";
+}
+
+function getControlCharacter(key) {
+  if (!/^[a-z]$/i.test(key || "")) {
+    return "";
+  }
+
+  return String.fromCharCode(key.toUpperCase().charCodeAt(0) - 64);
 }
 
 export default function DeviceTerminalModal({ open, device, onClose }) {
@@ -125,7 +111,7 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
       const promptConfig = formatPrompt(session);
       const { prompt } = promptConfig;
       const terminal = new Terminal({
-      cursorBlink: true,
+        cursorBlink: true,
         convertEol: true,
         fontFamily: '"Courier New", Consolas, monospace',
         fontSize: 16,
@@ -164,21 +150,48 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
       terminal.focus();
       commandBufferRef.current = "";
 
-      const writePrompt = () => {
-        terminal.write(`\r\n${prompt}`);
+      const writeBackendOutput = (response) => {
+        const terminalOutput = extractTerminalOutput(response);
+
+        if (terminalOutput && terminalOutput !== "Timeout") {
+          terminal.write(`\r\n${terminalOutput}`);
+        }
       };
 
-      const runCommand = (rawCommand) => {
-        const command = rawCommand.trim().toLowerCase();
+      const sendRawImmediately = async (value) => {
+        if (!device.deviceIdentifier) {
+          terminal.write("\r\nDevice agent id is missing.");
+          return;
+        }
 
-        if (!command) {
-          writePrompt();
+        try {
+          const response = await sendTerminalCommand(
+            device.deviceIdentifier,
+            value,
+            true,
+          );
+          writeBackendOutput(response);
+        } catch (error) {
+          console.error(error);
+          terminal.write(
+            `\r\n${error?.message || "Failed to send input to device."}`,
+          );
+        }
+      };
+
+      const runCommand = async (rawCommand) => {
+        const trimmedCommand = rawCommand.trim();
+        const command = trimmedCommand.toLowerCase();
+
+        if (!trimmedCommand) {
+          terminal.write("\r\n");
+          terminal.write(prompt);
           return;
         }
 
         if (command === "clear") {
           terminal.clear();
-          terminal.write(`${getBootBanner(device, session, promptConfig).join("\r\n")}\r\n${prompt}`);
+          terminal.write(prompt);
           return;
         }
 
@@ -187,35 +200,87 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
           return;
         }
 
-        const output = getCommandOutput(command, device, session, promptConfig);
-        terminal.write(`\r\n${output.join("\r\n")}`);
-        writePrompt();
+        if (command === "help") {
+          terminal.write(`\r\n${getHelpOutput(device).join("\r\n")}`);
+          terminal.write(`\r\n${prompt}`);
+          return;
+        }
+
+        if (!device.deviceIdentifier) {
+          terminal.write("\r\nDevice agent id is missing.");
+          terminal.write(`\r\n${prompt}`);
+          return;
+        }
+
+        try {
+          const response = await sendTerminalCommand(
+            device.deviceIdentifier,
+            trimmedCommand,
+            false,
+          );
+          writeBackendOutput(response);
+        } catch (error) {
+          terminal.write(
+            `\r\n${error?.message || "Failed to send command to device."}`,
+          );
+        } finally {
+          terminal.write(`\r\n${prompt}`);
+        }
       };
 
-      const terminalBanner = getBootBanner(device, session, promptConfig);
+      terminal.write(prompt);
 
-      terminal.write(`${terminalBanner.join("\r\n")}\r\n${prompt}`);
+      terminal.attachCustomKeyEventHandler((event) => {
+        if (
+          event.type === "keydown" &&
+          event.ctrlKey &&
+          !event.altKey &&
+          !event.metaKey
+        ) {
+          const controlCharacter = getControlCharacter(event.key);
+
+          if (!controlCharacter) {
+            return true;
+          }
+
+          event.preventDefault();
+
+          if (controlCharacter === "\u0003") {
+            commandBufferRef.current = "";
+            terminal.write("^C");
+            terminal.write(`\r\n${prompt}`);
+          }
+
+          void sendRawImmediately(controlCharacter);
+          return false;
+        }
+
+        return true;
+      });
 
       const dataDisposable = terminal.onData((data) => {
+        if (!device.deviceIdentifier) {
+          terminal.write("\r\nDevice agent id is missing.");
+          return;
+        }
+
         if (data === "\r") {
           const command = commandBufferRef.current;
           commandBufferRef.current = "";
-          runCommand(command);
+          void runCommand(command);
           return;
         }
 
-        if (data === "\u0003") {
-          commandBufferRef.current = "";
-          terminal.write("^C");
-          writePrompt();
-          return;
-        }
-
-        if (data === "\u007f") {
+        if (data === "\u007f" || data === "\b") {
           if (commandBufferRef.current.length > 0) {
             commandBufferRef.current = commandBufferRef.current.slice(0, -1);
             terminal.write("\b \b");
           }
+          return;
+        }
+
+        if (shouldForwardRawKey(data)) {
+          void sendRawImmediately(data);
           return;
         }
 
@@ -247,7 +312,7 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
       };
     };
 
-    setupTerminal();
+    void setupTerminal();
 
     return () => {
       isDisposed = true;
@@ -274,7 +339,7 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
               {device.name} SSH Console
             </p>
             <p className="text-[11px] text-[#163252]">
-              Raspberry Pi style terminal preview
+              Remote terminal session
             </p>
           </div>
 
@@ -309,3 +374,5 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
     </div>
   );
 }
+
+

@@ -4,17 +4,92 @@ import Sidebar from "@/components/Sidebar";
 import DashboardLogo from "@/components/dashboard/DashboardLogo";
 import { getUserInfo } from "@/lib/api";
 
-const SEARCH_BUTTON_SIZE = 36;
-const SEARCH_EXPANDED_WIDTH = 250;
-const CUSTOM_SCROLLBAR_WIDTH = 10;
-const CUSTOM_SCROLLBAR_THUMB_HEIGHT = 364;
+// Responsive sizes in rem (1rem = 16px at 100% scale)
+// These scale automatically with OS DPI settings
+const SEARCH_BUTTON_SIZE = 2.25; // 36px → 2.25rem
+const SEARCH_EXPANDED_WIDTH = 15.625; // 250px → 15.625rem
+const CUSTOM_SCROLLBAR_WIDTH = 0.625; // 10px → 0.625rem
+const CUSTOM_SCROLLBAR_THUMB_HEIGHT = 22.75; // 364px → 22.75rem
+const LOCAL_PROFILE_KEY = "dws.auth.profile";
+const SESSION_PROFILE_KEY = "dws.auth.session.profile";
 
 const DEFAULT_USER_PROFILE = {
-  username: "Olivia Rhye",
-  email: "olivia@untitledui.com",
-  firstLetter: "O",
+  username: "User",
+  email: "No email available",
+  firstLetter: "U",
   profileImage: "",
 };
+
+function readStoredUserProfile() {
+  const profileCandidates = [
+    window.localStorage.getItem(LOCAL_PROFILE_KEY),
+    window.sessionStorage.getItem(SESSION_PROFILE_KEY),
+  ];
+
+  for (const candidate of profileCandidates) {
+    if (!candidate) {
+      continue;
+    }
+
+    try {
+      const parsedProfile = JSON.parse(candidate);
+
+      if (parsedProfile && typeof parsedProfile === "object") {
+        return parsedProfile;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+function persistUserProfile(profile) {
+  const payload = JSON.stringify(profile);
+
+  if (window.localStorage.getItem("dws.auth.token")) {
+    window.localStorage.setItem(LOCAL_PROFILE_KEY, payload);
+  }
+
+  if (window.sessionStorage.getItem("dws.auth.session.token")) {
+    window.sessionStorage.setItem(SESSION_PROFILE_KEY, payload);
+  }
+}
+
+function normalizeUserProfile(response, fallbackProfile = null) {
+  const profile =
+    response?.data?.user ||
+    response?.data ||
+    response?.user ||
+    response ||
+    {};
+  const fallback = fallbackProfile || DEFAULT_USER_PROFILE;
+
+  const username =
+    profile.username ||
+    profile.name ||
+    profile.fullName ||
+    fallback.username ||
+    DEFAULT_USER_PROFILE.username;
+  const email = profile.email || fallback.email || DEFAULT_USER_PROFILE.email;
+
+  return {
+    username,
+    email,
+    firstLetter:
+      profile.firstLetter ||
+      fallback.firstLetter ||
+      username.trim().charAt(0).toUpperCase() ||
+      DEFAULT_USER_PROFILE.firstLetter,
+    profileImage:
+      profile.profileImage ||
+      profile.avatarUrl ||
+      profile.photoUrl ||
+      fallback.profileImage ||
+      "",
+  };
+}
 
 function AvatarFace({ userProfile, className = "" }) {
   const profileImage =
@@ -127,7 +202,36 @@ function LogOutIcon() {
   );
 }
 
-function ProfileCard({ onSignOut, userProfile }) {
+function MyAccountIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      className="h-4 w-4"
+    >
+      <path
+        d="M8 8C9.65685 8 11 6.65685 11 5C11 3.34315 9.65685 2 8 2C6.34315 2 5 3.34315 5 5C5 6.65685 6.34315 8 8 8Z"
+        stroke="#344054"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M2.83325 13.3333C2.83325 11.4003 5.14626 9.83331 7.99992 9.83331C10.8536 9.83331 13.1666 11.4003 13.1666 13.3333"
+        stroke="#344054"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ProfileCard({ onAccount, onSignOut, userProfile }) {
   return (
     <div className="absolute right-0 top-full z-[60] -mt-[7px] flex w-full sm:w-[250px] flex-col overflow-hidden rounded-[16px] border border-[#e5e7eb] bg-white shadow-[0_25px_50px_rgba(0,0,0,0.15),0_10px_20px_rgba(0,0,0,0.1)]">
       <div className="flex h-[94px] w-full shrink-0 flex-col items-start border-b border-[#e5e7eb] bg-gradient-to-r from-[#ede9fe] to-[#e0e7ff] px-4 py-3">
@@ -166,6 +270,19 @@ function ProfileCard({ onSignOut, userProfile }) {
             </div>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={onAccount}
+          className="flex min-h-[54px] self-stretch items-center border-b border-[#eaecf0] bg-white px-4 py-1 text-left transition-all duration-200 hover:bg-[#f9fafb] sm:px-0"
+        >
+          <div className="flex flex-1 items-center gap-2 py-[2px] pr-[6px] sm:pl-5">
+            <MyAccountIcon />
+            <div className="flex-1 font-['Inter'] text-[14px] font-medium leading-5 text-[#344054] transition-colors duration-200">
+              My Account
+            </div>
+          </div>
+        </button>
 
         <button
           type="button"
@@ -260,7 +377,7 @@ function ExpandableSearchButton({ value = "", onChange }) {
             ? "border-[#bfdbfe] shadow-[0_10px_30px_rgba(15,23,42,0.10),0_0_0_4px_rgba(59,130,246,0.08)]"
             : "border-[#d1d5db] shadow-[0_2px_4px_rgba(0,0,0,0.05)]",
         ].join(" ")}
-        style={{ width: `${shellWidth}px` }}
+        style={{ width: `${shellWidth}rem` }}
       >
         <Search
           className={[
@@ -500,7 +617,7 @@ function CustomScrollbar({ children }) {
               ? "pointer-events-auto opacity-100"
               : "pointer-events-none opacity-0",
           ].join(" ")}
-          style={{ width: `${CUSTOM_SCROLLBAR_WIDTH}px` }}
+          style={{ width: `${CUSTOM_SCROLLBAR_WIDTH}rem` }}
           onPointerDown={handleTrackPointerDown}
         >
           <div
@@ -508,7 +625,7 @@ function CustomScrollbar({ children }) {
             className="absolute left-0 cursor-grab rounded-[5px] bg-[#d9d9d9] active:cursor-grabbing"
             style={{
               height: `${scrollState.thumbHeight}px`,
-              width: `${CUSTOM_SCROLLBAR_WIDTH}px`,
+              width: `${CUSTOM_SCROLLBAR_WIDTH}rem`,
               transform: `translateY(${scrollState.thumbTop}px)`,
             }}
             onPointerDown={handleThumbPointerDown}
@@ -525,11 +642,14 @@ export default function DashboardLayout({
   pathname,
   onNavigate,
   onSignOut,
+  onAccountNavigate,
   searchValue = "",
   onSearchChange,
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
-  const [userProfile, setUserProfile] = useState(DEFAULT_USER_PROFILE);
+  const [userProfile, setUserProfile] = useState(
+    () => readStoredUserProfile() || DEFAULT_USER_PROFILE,
+  );
   const profileMenuRef = useRef(null);
 
   useEffect(() => {
@@ -548,26 +668,23 @@ export default function DashboardLayout({
 
   useEffect(() => {
     let isMounted = true;
+    const storedProfile = readStoredUserProfile();
+
+    if (storedProfile) {
+      setUserProfile(storedProfile);
+    }
 
     const loadUserProfile = async () => {
       try {
         const response = await getUserInfo();
-        const profile = response?.data;
+        const profile = normalizeUserProfile(response, storedProfile);
 
-        if (!isMounted || !profile) {
+        if (!isMounted) {
           return;
         }
 
-        setUserProfile({
-          username: profile.username || DEFAULT_USER_PROFILE.username,
-          email: profile.email || DEFAULT_USER_PROFILE.email,
-          firstLetter: profile.firstLetter || DEFAULT_USER_PROFILE.firstLetter,
-          profileImage:
-            profile.profileImage ||
-            profile.avatarUrl ||
-            profile.photoUrl ||
-            DEFAULT_USER_PROFILE.profileImage,
-        });
+        setUserProfile(profile);
+        persistUserProfile(profile);
       } catch {
         // Keep the existing profile placeholder when the backend/token is unavailable.
       }
@@ -603,6 +720,10 @@ export default function DashboardLayout({
                 {profileOpen ? (
                   <ProfileCard
                     userProfile={userProfile}
+                    onAccount={() => {
+                      setProfileOpen(false);
+                      onAccountNavigate?.();
+                    }}
                     onSignOut={() => {
                       setProfileOpen(false);
                       onSignOut?.();

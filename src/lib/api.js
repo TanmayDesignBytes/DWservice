@@ -89,14 +89,11 @@ export function logoutUser(token = getStoredAuthToken()) {
 
 export function getMyDevices(token = getStoredAuthToken()) {
   return apiRequest("/device/my-devices", {
-    token,
-  });
-}
-
-export function generateDeviceCode(payload, token = getStoredAuthToken()) {
-  return apiRequest("/device/generate-code", {
-    method: "POST",
-    body: payload,
+    headers: {
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+    cache: "no-store",
     token,
   });
 }
@@ -105,12 +102,94 @@ export function searchDevices(query, token = getStoredAuthToken()) {
   const params = new URLSearchParams({ q: query });
 
   return apiRequest(`/device/search?${params.toString()}`, {
+    headers: {
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+    cache: "no-store",
+    token,
+  });
+}
+
+export function generateDeviceCode(
+  payload,
+  token = getStoredAuthToken(),
+) {
+  return apiRequest("/device/generate-code", {
+    method: "POST",
+    body: payload,
+    token,
+  });
+}
+
+export function deleteDevice(id, token = getStoredAuthToken()) {
+  return apiRequest(`/device/delete/${id}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
+export function toggleDevice(
+  id,
+  payload,
+  token = getStoredAuthToken(),
+) {
+  return apiRequest(`/device/${id}/toggle`, {
+    method: "PATCH",
+    body: payload,
+    token,
+  });
+}
+
+export function updateDeviceDetails(
+  id,
+  payload,
+  token = getStoredAuthToken(),
+) {
+  return apiRequest(`/device/device/${id}`, {
+    method: "PUT",
+    body: payload,
+    token,
+  });
+}
+
+export function rebootAgent(deviceIdentifier, token = getStoredAuthToken()) {
+  return apiRequest(`/device/reboot-agent/${encodeURIComponent(deviceIdentifier)}`, {
+    method: "POST",
+    token,
+  });
+}
+
+export function rebootOperatingSystem(
+  deviceIdentifier,
+  token = getStoredAuthToken(),
+) {
+  return apiRequest(`/device/reboot-os/${encodeURIComponent(deviceIdentifier)}`, {
+    method: "POST",
+    token,
+  });
+}
+
+export function sendTerminalCommand(
+  deviceIdentifier,
+  command,
+  isRawKey = false,
+  token = getStoredAuthToken(),
+) {
+  return apiRequest(`/device/command/${encodeURIComponent(deviceIdentifier)}`, {
+    method: "POST",
+    body: { command, isRawKey },
     token,
   });
 }
 
 export function getUserInfo(token = getStoredAuthToken()) {
   return apiRequest("/auth/info", {
+    headers: {
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+    cache: "no-store",
     token,
   });
 }

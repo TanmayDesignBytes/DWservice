@@ -1,5 +1,4 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { devices } from "@/data/dashboard";
 
 const ChevronDownIcon = () => (
   <svg
@@ -45,6 +44,7 @@ export default function AddDeviceModal({
   onClose,
   onConfirm,
   initialValues = EMPTY_VALUES,
+  groupOptions: providedGroupOptions,
   title = "Add Device Details",
   confirmLabel = "Confirm",
   isSubmitting = false,
@@ -52,10 +52,9 @@ export default function AddDeviceModal({
 }) {
   const [formValues, setFormValues] = useState(EMPTY_VALUES);
 
-  const groupOptions = useMemo(
-    () => Array.from(new Set(devices.map((device) => device.group))).sort(),
-    [],
-  );
+  const groupOptions = useMemo(() => {
+    return Array.isArray(providedGroupOptions) ? providedGroupOptions : [];
+  }, [providedGroupOptions]);
 
   useEffect(() => {
     if (open) {

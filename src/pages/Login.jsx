@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { forgotPassword, loginUser, resetPassword, signupUser } from "@/lib/api";
 
+const KNOWN_USERS_KEY = "dws.known.users";
 const EMPTY_RESET_VALUES = {
   token: "",
   newPassword: "",
@@ -82,6 +83,78 @@ function getResetTokenFromLocation(pathname, search) {
   }
 
   return "";
+}
+
+function readKnownUsers() {
+  try {
+    const rawValue = window.localStorage.getItem(KNOWN_USERS_KEY);
+
+    if (!rawValue) {
+      return {};
+    }
+
+    const parsedValue = JSON.parse(rawValue);
+    return parsedValue && typeof parsedValue === "object" ? parsedValue : {};
+  } catch {
+    return {};
+  }
+}
+
+function rememberKnownUser(email, profile) {
+  if (!email || !profile?.username) {
+    return;
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return;
+  }
+
+  const knownUsers = readKnownUsers();
+  knownUsers[normalizedEmail] = profile;
+  window.localStorage.setItem(KNOWN_USERS_KEY, JSON.stringify(knownUsers));
+}
+
+function buildProfileFromAuth(response, fallbackEmail) {
+  const profileSource =
+    response?.data?.user ||
+    response?.data ||
+    response?.user ||
+    response ||
+    {};
+  const normalizedEmail = fallbackEmail.trim().toLowerCase();
+  const rememberedProfile = readKnownUsers()[normalizedEmail] || {};
+  const username =
+    profileSource.username ||
+    profileSource.name ||
+    profileSource.fullName ||
+    rememberedProfile.username ||
+    rememberedProfile.name ||
+    "User";
+  const email =
+    profileSource.email ||
+    rememberedProfile.email ||
+    fallbackEmail.trim() ||
+    "No email available";
+
+  return {
+    username,
+    email,
+    firstLetter:
+      profileSource.firstLetter ||
+      rememberedProfile.firstLetter ||
+      username.trim().charAt(0).toUpperCase() ||
+      "U",
+    profileImage:
+      profileSource.profileImage ||
+      profileSource.avatarUrl ||
+      profileSource.photoUrl ||
+      rememberedProfile.profileImage ||
+      rememberedProfile.avatarUrl ||
+      rememberedProfile.photoUrl ||
+      "",
+  };
 }
 
 function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
@@ -182,10 +255,12 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
           email: loginValues.email.trim(),
           password: loginValues.password,
         });
+        const profile = buildProfileFromAuth(response, loginValues.email);
 
         onSignIn?.({
           token: response.token,
           rememberMe: loginValues.rememberMe,
+          profile,
         });
         return;
       }
@@ -195,6 +270,13 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
           username: signupValues.username.trim(),
           email: signupValues.email.trim(),
           password: signupValues.password,
+        });
+
+        rememberKnownUser(signupValues.email, {
+          username: signupValues.username.trim(),
+          email: signupValues.email.trim(),
+          firstLetter: signupValues.username.trim().charAt(0).toUpperCase() || "U",
+          profileImage: "",
         });
 
         setStatusMessage(response.message || "Signup successful. Please sign in.");

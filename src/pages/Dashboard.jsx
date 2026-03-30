@@ -1,10 +1,16 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DeviceCard from "@/components/DeviceCard";
 import AddDeviceModal from "@/components/dashboard/AddDeviceModal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { generateDeviceCode, getMyDevices, searchDevices } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { devices as initialDevices, filterTabs } from "@/data/dashboard";
+import { filterTabs } from "@/data/dashboard";
+
+const defaultGroupOptions = [
+  { id: "GCU", label: "GCU" },
+  { id: "Microgrid", label: "Microgrid" },
+  { id: "Koel", label: "Koel" },
+];
 
 function formatDeviceDate(value) {
   if (!value) {
@@ -24,41 +30,65 @@ function formatDeviceDate(value) {
   }).format(date);
 }
 
+function normalizeSearchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function mapDeviceStatus(device) {
+  if (device.status) {
+    return device.status;
+  }
+
+  if (
+    device.code &&
+    !device.last_connected &&
+    !device.connected_at &&
+    !device.registered_at
+  ) {
+    return "to-install";
+  }
+
+  if (typeof device.is_disabled === "boolean") {
+    return device.is_disabled ? "disabled" : device.is_online ? "online" : "offline";
+  }
+
+  if (typeof device.is_disable === "boolean") {
+    return device.is_disable ? "disabled" : device.is_online ? "online" : "offline";
+  }
+
+  if (typeof device.isDisable === "boolean") {
+    return device.isDisable ? "disabled" : device.is_online ? "online" : "offline";
+  }
+
+  if (typeof device.disabled === "boolean") {
+    return device.disabled ? "disabled" : device.is_online ? "online" : "offline";
+  }
+
+  if (typeof device.is_online === "boolean") {
+    return device.is_online ? "online" : "offline";
+  }
+
+  return "offline";
+}
+
 function mapApiDevice(device) {
   return {
-    id: device.id ?? device.device_id ?? Date.now(),
-    name: device.name || device.hostname || "Unnamed Device",
-    group: device.os || "Device",
-    description: device.device_id || device.hostname || "",
+    id: device.id ?? device.deviceDbId ?? device.device_id ?? Date.now(),
+    deviceIdentifier: device.device_id || device.deviceId || "",
+    name: device.name || device.deviceName || device.hostname || "Unnamed Device",
+    group: device.group || device.os || "Device",
+    description: device.description != null ? device.description : "",
     location: device.hostname || device.ip_address || "",
     date: formatDeviceDate(device.last_connected || device.created_at),
-    status: device.is_online ? "online" : "offline",
+    status: mapDeviceStatus(device),
+    generatedCode: device.code || "",
+    isPendingOnly: Boolean(device.isPendingOnly),
   };
 }
 
-function filterDevicesByQuery(devices, query) {
-  const normalizedQuery = String(query || "").trim().toLowerCase();
-
-  if (!normalizedQuery) {
-    return devices;
-  }
-
-  return devices.filter((device) =>
-    [
-      device.name,
-      device.group,
-      device.description,
-      device.location,
-      device.date,
-    ]
-      .filter(Boolean)
-      .some((value) =>
-        String(value).toLowerCase().includes(normalizedQuery),
-      ),
-  );
-}
-
-function getSearchResponseItems(response) {
+function getDeviceItems(response) {
   if (Array.isArray(response)) {
     return response;
   }
@@ -71,10 +101,6 @@ function getSearchResponseItems(response) {
     return response.data.all;
   }
 
-  if (Array.isArray(response?.data)) {
-    return response.data;
-  }
-
   if (Array.isArray(response?.devices)) {
     return response.devices;
   }
@@ -83,15 +109,11 @@ function getSearchResponseItems(response) {
     return response.data.devices;
   }
 
-  if (Array.isArray(response?.results)) {
-    return response.results;
+  if (Array.isArray(response?.data)) {
+    return response.data;
   }
 
-  if (Array.isArray(response?.data?.results)) {
-    return response.data.results;
-  }
-
-  return null;
+  return [];
 }
 
 export default function Dashboard({
@@ -100,14 +122,16 @@ export default function Dashboard({
   onSignOut,
 }) {
   const [selectedTab, setSelectedTab] = useState("all");
-  const [showAddDevice, setShowAddDevice] = useState(false);
-  const [deviceList, setDeviceList] = useState(initialDevices);
-  const [isAddingDevice, setIsAddingDevice] = useState(false);
-  const [addDeviceError, setAddDeviceError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAddDevice, setShowAddDevice] = useState(false);
+  const [deviceList, setDeviceList] = useState([]);
   const [searchResults, setSearchResults] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
+  const [isLoadingDevices, setIsLoadingDevices] = useState(true);
+  const [devicesError, setDevicesError] = useState("");
+  const [isSubmittingDevice, setIsSubmittingDevice] = useState(false);
+  const [addDeviceError, setAddDeviceError] = useState("");
 
   const groupMenuRef = useRef(null);
   const tabRefs = useRef({});
@@ -117,25 +141,6 @@ export default function Dashboard({
     left: 0,
     visible: false,
   });
-
-  const groupOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          ["GCU", "Koel"].concat(
-            deviceList
-              .map((device) => String(device.group || "").trim())
-              .filter(Boolean),
-          ),
-        ),
-      )
-        .sort((left, right) => left.localeCompare(right))
-        .map((groupName) => ({
-          id: groupName,
-          label: groupName,
-        })),
-    [deviceList],
-  );
 
   useEffect(() => {
     const handleClick = (event) => {
@@ -181,30 +186,27 @@ export default function Dashboard({
     return () => window.removeEventListener("resize", updateActiveTabStyle);
   }, [updateActiveTabStyle]);
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadDevices = useCallback(async () => {
+    setIsLoadingDevices(true);
+    setDevicesError("");
 
-    const loadDevices = async () => {
-      try {
-        const response = await getMyDevices();
-        const apiDevices = Array.isArray(response?.all)
-          ? response.all.map(mapApiDevice)
-          : [];
-
-        if (isMounted && apiDevices.length > 0) {
-          setDeviceList(apiDevices);
-        }
-      } catch {
-        // Keep the existing static list when the backend is unavailable.
-      }
-    };
-
-    loadDevices();
-
-    return () => {
-      isMounted = false;
-    };
+    try {
+      const response = await getMyDevices();
+      const rawApiDevices = getDeviceItems(response);
+      const apiDevices = rawApiDevices.map(mapApiDevice);
+      window.localStorage.removeItem("dws.pending.install.devices");
+      setDeviceList(apiDevices);
+    } catch (error) {
+      setDeviceList([]);
+      setDevicesError(error?.message || "Unable to load devices");
+    } finally {
+      setIsLoadingDevices(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadDevices();
+  }, [loadDevices]);
 
   useEffect(() => {
     const normalizedQuery = searchQuery.trim();
@@ -218,17 +220,15 @@ export default function Dashboard({
     const timeoutId = window.setTimeout(async () => {
       try {
         const response = await searchDevices(normalizedQuery);
-        const searchItems = getSearchResponseItems(response);
-        const apiDevices = Array.isArray(searchItems)
-          ? searchItems.map(mapApiDevice)
-          : filterDevicesByQuery(deviceList, normalizedQuery);
+        const rawSearchDevices = getDeviceItems(response);
+        const mappedSearchDevices = rawSearchDevices.map(mapApiDevice);
 
         if (!isCancelled) {
-          setSearchResults(apiDevices);
+          setSearchResults(mappedSearchDevices);
         }
       } catch {
         if (!isCancelled) {
-          setSearchResults(filterDevicesByQuery(deviceList, normalizedQuery));
+          setSearchResults(null);
         }
       }
     }, 350);
@@ -237,12 +237,29 @@ export default function Dashboard({
       isCancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [deviceList, searchQuery]);
+  }, [searchQuery]);
 
-  const visibleDeviceList = searchResults ?? deviceList;
+  const groupOptions = useMemo(() => {
+    const sourceDevices = searchResults ?? deviceList;
+    const optionMap = new Map(
+      defaultGroupOptions.map((option) => [option.id, option.label]),
+    );
+
+    for (const device of sourceDevices) {
+      if (device.group) {
+        optionMap.set(device.group, device.group);
+      }
+    }
+
+    return Array.from(optionMap, ([id, label]) => ({ id, label }));
+  }, [deviceList, searchResults]);
 
   const filteredDevices = useMemo(() => {
-    return visibleDeviceList.filter((device) => {
+    const sourceDevices = searchResults ?? deviceList;
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const compactQuery = normalizeSearchText(searchQuery);
+
+    return sourceDevices.filter((device) => {
       if (selectedGroup && device.group !== selectedGroup) {
         return false;
       }
@@ -252,40 +269,62 @@ export default function Dashboard({
       }
 
       if (selectedTab === "unavailable") {
-        return device.status === "offline";
+        return device.status === "offline" || device.status === "to-install";
       }
 
       if (selectedTab === "to-install") {
-        return device.status === "to-install";
+        if (device.status !== "to-install") {
+          return false;
+        }
       }
 
-      return true;
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      const searchableValue = [
+        device.name,
+        device.group,
+        device.description,
+        device.location,
+        device.date,
+        device.generatedCode,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      if (searchableValue.includes(normalizedQuery)) {
+        return true;
+      }
+
+      if (!compactQuery) {
+        return false;
+      }
+
+      const compactSearchableValue = normalizeSearchText([
+        device.name,
+        device.group,
+        device.description,
+        device.location,
+        device.date,
+        device.generatedCode,
+      ].join(" "));
+
+      return compactSearchableValue.includes(compactQuery);
     });
-  }, [selectedGroup, selectedTab, visibleDeviceList]);
+  }, [deviceList, searchQuery, searchResults, selectedGroup, selectedTab]);
 
   const emptyStateMessage = useMemo(() => {
+    if (isLoadingDevices) {
+      return "Loading devices...";
+    }
+
+    if (devicesError && filteredDevices.length === 0) {
+      return devicesError;
+    }
+
     if (filteredDevices.length === 0) {
-      if (searchQuery.trim() && selectedGroup && selectedTab === "available") {
-        return `No available search results in ${selectedGroup}`;
-      }
-      if (searchQuery.trim() && selectedGroup && selectedTab === "unavailable") {
-        return `No unavailable search results in ${selectedGroup}`;
-      }
-      if (searchQuery.trim() && selectedGroup && selectedTab === "to-install") {
-        return `No devices to install found in ${selectedGroup}`;
-      }
-      if (searchQuery.trim() && selectedGroup) {
-        return `No search results in ${selectedGroup}`;
-      }
-      if (searchQuery.trim() && selectedTab === "available") {
-        return "No available search results";
-      }
-      if (searchQuery.trim() && selectedTab === "unavailable") {
-        return "No unavailable search results";
-      }
-      if (searchQuery.trim() && selectedTab === "to-install") {
-        return "No devices to install found";
-      }
       if (searchQuery.trim()) {
         return "No devices found for this search";
       }
@@ -307,9 +346,18 @@ export default function Dashboard({
       if (selectedTab === "to-install") {
         return "No devices to install";
       }
+      return "No devices found";
     }
+
     return null;
-  }, [filteredDevices.length, searchQuery, selectedGroup, selectedTab]);
+  }, [
+    devicesError,
+    filteredDevices.length,
+    isLoadingDevices,
+    searchQuery,
+    selectedGroup,
+    selectedTab,
+  ]);
 
   const handleOpenAddDevice = useCallback(() => {
     setAddDeviceError("");
@@ -317,46 +365,72 @@ export default function Dashboard({
   }, []);
 
   const handleConfirmAddDevice = useCallback(async (values) => {
-    setIsAddingDevice(true);
+    if (isSubmittingDevice) {
+      return;
+    }
+
+    setIsSubmittingDevice(true);
     setAddDeviceError("");
 
+    const payload = {
+      deviceName: values.name.trim() || "15- HAL",
+      group: values.group,
+      description:
+        values.description.trim() || "I've updated the user interface",
+    };
+
     try {
-      const payload = {
-        deviceName: values.name.trim(),
-        group: values.group.trim(),
-        description: values.description.trim(),
-      };
-
       const response = await generateDeviceCode(payload);
-      const newDevice = {
-        id: response?.deviceId ?? response?.id ?? Date.now(),
-        name: response?.deviceName || payload.deviceName || "15- HAL",
-        group: response?.group || payload.group || "Device",
+      const backendId =
+        response?.deviceDbId ??
+        response?.id ??
+        response?.device?.id ??
+        response?.device?.deviceDbId ??
+        null;
+      const createdDevice = mapApiDevice({
+        id: backendId ?? Date.now(),
+        deviceDbId: backendId,
+        deviceName:
+          response?.deviceName ?? response?.device?.name ?? payload.deviceName,
+        group: response?.group ?? response?.device?.group ?? payload.group,
         description:
-          response?.description ||
-          payload.description ||
-          "I've updated the user interface",
-        location: "",
-        date: "",
+          response?.description ??
+          response?.device?.description ??
+          payload.description,
+        hostname: response?.hostname ?? response?.device?.hostname ?? "",
+        code: response?.code ?? response?.device?.code ?? "",
         status: "to-install",
-        generatedCode: String(response?.code || ""),
-      };
+        isPendingOnly: backendId == null,
+      });
 
-      setDeviceList((current) => [newDevice, ...current]);
+      setDeviceList((current) => [createdDevice, ...current]);
       setShowAddDevice(false);
       setSelectedGroup(null);
       setSelectedTab("to-install");
     } catch (error) {
-      setAddDeviceError(
-        error?.message || "Unable to generate code right now. Please try again.",
-      );
+      setAddDeviceError(error?.message || "Failed to add device");
     } finally {
-      setIsAddingDevice(false);
+      setIsSubmittingDevice(false);
     }
-  }, []);
+  }, [isSubmittingDevice]);
 
   const handleDeleteDevice = useCallback((deviceId) => {
-    setDeviceList((current) => current.filter((device) => device.id !== deviceId));
+    setDeviceList((current) =>
+      current.filter((device) => device.id !== deviceId),
+    );
+  }, []);
+
+  const handleDisableDevice = useCallback((deviceId, isDisabled) => {
+    setDeviceList((current) =>
+      current.map((device) =>
+        device.id === deviceId
+          ? {
+              ...device,
+              status: isDisabled ? "disabled" : "offline",
+            }
+          : device,
+      ),
+    );
   }, []);
 
   const handleUpdateDevice = useCallback((deviceId, nextValues) => {
@@ -430,16 +504,18 @@ export default function Dashboard({
 
           {groupMenuOpen && (
             <div className="absolute left-0 top-full z-50 mt-2 w-[234px] rounded-[8px] border border-[#ececec] bg-white py-1 shadow-[0_4px_4px_rgba(0,0,0,0.25),0_12px_20px_rgba(7,6,18,0.25)]">
-              {selectedGroup && (
-                <button
-                  type="button"
-                  onClick={handleClearFilter}
-                  className="flex w-full items-center px-4 py-2 text-left text-[14px] font-medium text-[#ef4444] transition-colors hover:bg-[#f8f9fc]"
-                >
-                  × Clear Filter
-                </button>
-              )}
-              {selectedGroup && <div className="h-px bg-[#ececec]" />}
+              {selectedGroup ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleClearFilter}
+                    className="flex w-full items-center px-4 py-2 text-left text-[14px] font-medium text-[#ef4444] transition-colors hover:bg-[#f8f9fc]"
+                  >
+                    × Clear Filter
+                  </button>
+                  <div className="h-px bg-[#ececec]" />
+                </>
+              ) : null}
               {groupOptions.map((option) => (
                 <button
                   key={option.id}
@@ -483,6 +559,7 @@ export default function Dashboard({
         pathname={pathname}
         onNavigate={onNavigate}
         onSignOut={onSignOut}
+        onAccountNavigate={() => onNavigate?.("/dashboard/account")}
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
       >
@@ -502,6 +579,7 @@ export default function Dashboard({
                   key={device.id}
                   {...device}
                   onDelete={handleDeleteDevice}
+                  onDisable={handleDisableDevice}
                   onUpdate={handleUpdateDevice}
                 />
               ))}
@@ -513,15 +591,16 @@ export default function Dashboard({
       <AddDeviceModal
         open={showAddDevice}
         onClose={() => {
-          if (isAddingDevice) {
+          if (isSubmittingDevice) {
             return;
           }
 
-          setShowAddDevice(false);
           setAddDeviceError("");
+          setShowAddDevice(false);
         }}
         onConfirm={handleConfirmAddDevice}
-        isSubmitting={isAddingDevice}
+        groupOptions={groupOptions.map((option) => option.label)}
+        isSubmitting={isSubmittingDevice}
         errorMessage={addDeviceError}
       />
     </>
