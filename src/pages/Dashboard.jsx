@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DeviceCard from "@/components/DeviceCard";
 import AddDeviceModal from "@/components/dashboard/AddDeviceModal";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import { generateDeviceCode, getMyDevices, searchDevices } from "@/lib/api";
+import {
+  generateDeviceCode,
+  getMyDevices,
+  searchDevices,
+} from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { filterTabs } from "@/data/dashboard";
 
@@ -192,20 +196,19 @@ export default function Dashboard({
 
     try {
       const response = await getMyDevices();
-      const rawApiDevices = getDeviceItems(response);
-      const apiDevices = rawApiDevices.map(mapApiDevice);
-      window.localStorage.removeItem("dws.pending.install.devices");
+      const items = getDeviceItems(response);
+      const apiDevices = items.map(mapApiDevice);
       setDeviceList(apiDevices);
     } catch (error) {
       setDeviceList([]);
-      setDevicesError(error?.message || "Unable to load devices");
+      setDevicesError(error?.message || "Failed to load devices");
     } finally {
       setIsLoadingDevices(false);
     }
   }, []);
 
   useEffect(() => {
-    loadDevices();
+    void loadDevices();
   }, [loadDevices]);
 
   useEffect(() => {
@@ -220,11 +223,11 @@ export default function Dashboard({
     const timeoutId = window.setTimeout(async () => {
       try {
         const response = await searchDevices(normalizedQuery);
-        const rawSearchDevices = getDeviceItems(response);
-        const mappedSearchDevices = rawSearchDevices.map(mapApiDevice);
+        const items = getDeviceItems(response);
+        const apiDevices = items.map(mapApiDevice);
 
         if (!isCancelled) {
-          setSearchResults(mappedSearchDevices);
+          setSearchResults(apiDevices);
         }
       } catch {
         if (!isCancelled) {
@@ -407,12 +410,13 @@ export default function Dashboard({
       setShowAddDevice(false);
       setSelectedGroup(null);
       setSelectedTab("to-install");
+      void loadDevices();
     } catch (error) {
       setAddDeviceError(error?.message || "Failed to add device");
     } finally {
       setIsSubmittingDevice(false);
     }
-  }, [isSubmittingDevice]);
+  }, [isSubmittingDevice, loadDevices]);
 
   const handleDeleteDevice = useCallback((deviceId) => {
     setDeviceList((current) =>
@@ -573,7 +577,7 @@ export default function Dashboard({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 md:gap-4 lg:grid-cols-4 lg:gap-x-[15px] lg:gap-y-[15px]">
+            <div className="grid grid-cols-1 justify-items-center gap-4 sm:grid-cols-2 md:grid-cols-3 md:justify-items-center xl:[grid-template-columns:repeat(4,minmax(0,315px))] xl:justify-between xl:gap-[15px]">
               {filteredDevices.map((device) => (
                 <DeviceCard
                   key={device.id}

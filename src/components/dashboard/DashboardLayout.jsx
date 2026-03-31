@@ -698,61 +698,76 @@ export default function DashboardLayout({
   }, []);
 
   return (
-    <div className="dashboard-stage min-h-[100dvh] px-3 py-3 sm:px-4 sm:py-4 lg:px-0 lg:py-0 -ml-[5px]">
-      <div className="flex w-full flex-col">
-        <div className="dashboard-shell flex h-[calc(100dvh-24px)] min-h-[calc(100dvh-24px)] w-full flex-col overflow-hidden rounded-none bg-white sm:h-[calc(100dvh-32px)] sm:min-h-[calc(100dvh-32px)] lg:h-[100dvh] lg:min-h-[100dvh]">
-          <header className="relative z-[30] flex h-[74px] min-h-[74px] items-center justify-between bg-gradient-to-r from-white to-[#fafbfc] px-4 py-4 sm:px-6 lg:px-5">
-            <DashboardLogo />
+  <div className="dashboard-stage h-full w-full overflow-hidden">
+    <div className="dashboard-shell flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
 
-            <div className="flex items-center gap-3">
-              <ExpandableSearchButton
-                value={searchValue}
-                onChange={onSearchChange}
+      {/* HEADER */}
+      <header className="relative z-[30] flex shrink-0 h-[66px] items-center justify-between bg-gradient-to-r from-white to-[#fafbfc] px-4 py-3 sm:h-[70px] sm:px-6 lg:h-[74px] lg:px-5 lg:py-4">
+        <DashboardLogo />
+
+        <div className="flex items-center gap-3">
+          <ExpandableSearchButton
+            value={searchValue}
+            onChange={onSearchChange}
+          />
+
+          <div ref={profileMenuRef} className="relative z-[40]">
+            <button
+              type="button"
+              onClick={() => setProfileOpen((value) => !value)}
+              aria-label="Open profile menu"
+            >
+              <UserAvatar userProfile={userProfile} />
+            </button>
+
+            {profileOpen && (
+              <ProfileCard
+                userProfile={userProfile}
+                onAccount={() => {
+                  setProfileOpen(false);
+                  onAccountNavigate?.();
+                }}
+                onSignOut={() => {
+                  setProfileOpen(false);
+                  onSignOut?.();
+                }}
               />
-              <div ref={profileMenuRef} className="relative z-[40]">
-                <button
-                  type="button"
-                  onClick={() => setProfileOpen((value) => !value)}
-                  aria-label="Open profile menu"
-                >
-                  <UserAvatar userProfile={userProfile} />
-                </button>
-                {profileOpen ? (
-                  <ProfileCard
-                    userProfile={userProfile}
-                    onAccount={() => {
-                      setProfileOpen(false);
-                      onAccountNavigate?.();
-                    }}
-                    onSignOut={() => {
-                      setProfileOpen(false);
-                      onSignOut?.();
-                    }}
-                  />
-                ) : null}
-              </div>
-            </div>
-          </header>
-
-          <div className="dashboard-body relative z-[1] flex min-h-0 flex-1 gap-0 px-3 pb-3 pt-0 sm:px-4 sm:pb-4 lg:px-0 lg:pb-0">
-            <div className="hidden w-auto md:block lg:w-[98px] lg:pl-[18px]">
-              <Sidebar pathname={pathname} onNavigate={onNavigate} />
-            </div>
-
-            <div className="dashboard-panel flex min-h-0 w-full flex-1 flex-col self-stretch rounded-lg sm:rounded-[21px] border-t border-[#d7dee8] bg-white lg:mt-0 lg:max-w-full lg:flex-1 lg:min-h-[600px]">
-              {toolbar ? (
-                <div className="z-20 px-4 sm:px-6 md:px-6 lg:px-10 pb-5 pt-5">
-                  {toolbar}
-                  <div className="mt-5 h-px bg-[#eef1f5]" />
-                </div>
-              ) : null}
-              <CustomScrollbar>{children}</CustomScrollbar>
-            </div>
-
-            <div className="hidden lg:block lg:w-[24px]" />
+            )}
           </div>
         </div>
+      </header>
+
+      {/* MAIN CONTENT */}
+      <div className="relative z-[1] flex flex-1 min-h-0 gap-0 px-3 pt-0 sm:px-4 lg:px-0">
+
+        {/* SIDEBAR */}
+        <div className="hidden md:block lg:w-[98px] lg:pl-[18px] shrink-0">
+          <Sidebar pathname={pathname} onNavigate={onNavigate} />
+        </div>
+
+        {/* MAIN PANEL */}
+        <div className="dashboard-panel flex min-h-0 w-full flex-1 flex-col rounded-lg sm:rounded-[21px] border-t border-[#d7dee8] bg-white">
+
+          {/* TOOLBAR */}
+          {toolbar && (
+            <div className="shrink-0 px-4 pb-4 pt-4 sm:px-6 md:px-6 lg:px-10 lg:pb-5 lg:pt-5">
+              {toolbar}
+              <div className="mt-4 h-px bg-[#eef1f5] lg:mt-5" />
+            </div>
+          )}
+
+          {/* SCROLLABLE CONTENT */}
+          <CustomScrollbar>
+            {children}
+          </CustomScrollbar>
+
+        </div>
+
+        {/* RIGHT SPACER */}
+        <div className="hidden lg:block lg:w-[24px] shrink-0" />
+
       </div>
     </div>
-  );
+  </div>
+);
 }

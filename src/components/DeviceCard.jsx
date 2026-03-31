@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import AddDeviceModal from "@/components/dashboard/AddDeviceModal";
 import DeviceTerminalModal from "@/components/dashboard/DeviceTerminalModal";
 import {
@@ -9,6 +9,7 @@ import {
   updateDeviceDetails,
 } from "@/lib/api";
 import DeleteModal from "./DeleteModal";
+import { useCallback, useMemo } from "react";
 
 function DeviceGlyph({ statusColor, isInstallCard = false }) {
   return (
@@ -71,8 +72,8 @@ function getStatusLabel(status, isDisabled) {
 
 function CodeFooter({ code, status, isDisabled }) {
   return (
-    <div className="flex h-[58px] items-start gap-[10px] self-stretch rounded-[8px] border border-[#e5e7eb] bg-gradient-to-r from-[#f0f4f8] to-[#f9fafb] pb-[13px] pl-[15px] pr-[14px] pt-[12px]">
-      <div className="flex h-[32px] min-w-0 w-[150px] items-center">
+    <div className="mt-auto mb-[4px] flex min-h-[54px] w-full min-w-0 items-center gap-[10px] self-stretch rounded-[8px] border border-[#e5e7eb] bg-gradient-to-r from-[#f0f4f8] to-[#f9fafb] px-[15px] py-[10px] sm:min-h-[58px] sm:py-[12px]">
+      <div className="flex min-w-0 flex-1 items-center">
         <span
           className={`min-w-0 truncate text-[14px] font-medium ${
             isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
@@ -84,7 +85,7 @@ function CodeFooter({ code, status, isDisabled }) {
 
       <div className="h-[28px] w-px shrink-0 bg-[#d1d5db]" />
 
-      <div className="flex h-[32px] w-[117px] shrink-0 items-center">
+      <div className="flex min-w-0 shrink-0 items-center">
         <span
           className={`truncate text-[14px] font-medium ${
             isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
@@ -237,6 +238,7 @@ function RebootCommandModal({
 function ContextMenu({
   isInstallCard,
   isDisabled,
+  align = "center",
   onClose,
   onEdit,
   onDisable,
@@ -284,7 +286,13 @@ function ContextMenu({
     <div
       ref={menuRef}
       onClick={(event) => event.stopPropagation()}
-      className="absolute left-1/2 top-full z-50 mt-2 w-[184px] -translate-x-1/2 rounded-[8px] border border-[rgba(234,236,240,0.5)] bg-white py-1 shadow-[0_4px_4px_rgba(0,0,0,0.25),0_12px_20px_rgba(7,6,18,0.25)]"
+      className={`absolute top-full z-50 mt-2 w-[184px] rounded-[8px] border border-[rgba(234,236,240,0.5)] bg-white py-1 shadow-[0_4px_4px_rgba(0,0,0,0.25),0_12px_20px_rgba(7,6,18,0.25)] ${
+        align === "right"
+          ? "right-0"
+          : align === "left"
+            ? "left-0"
+            : "left-1/2 -translate-x-1/2"
+      }`}
     >
       {items.map((item) => (
         <button
@@ -341,7 +349,9 @@ export default function DeviceCard({
   onDisable,
   onUpdate,
 }) {
+  const menuTriggerRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuAlign, setMenuAlign] = useState("center");
   const [isDisabled, setIsDisabled] = useState(status === "disabled");
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -373,6 +383,30 @@ export default function DeviceCard({
     setIsDisabled(status === "disabled");
     setEditError("");
   }, [description, generatedCode, group, name, status]);
+
+  useEffect(() => {
+    if (!menuOpen || !menuTriggerRef.current) {
+      return;
+    }
+
+    const MENU_WIDTH = 184;
+    const VIEWPORT_GAP = 16;
+    const triggerRect = menuTriggerRef.current.getBoundingClientRect();
+    const centeredLeft = triggerRect.left + triggerRect.width / 2 - MENU_WIDTH / 2;
+    const centeredRight = centeredLeft + MENU_WIDTH;
+
+    if (centeredRight > window.innerWidth - VIEWPORT_GAP) {
+      setMenuAlign("right");
+      return;
+    }
+
+    if (centeredLeft < VIEWPORT_GAP) {
+      setMenuAlign("left");
+      return;
+    }
+
+    setMenuAlign("center");
+  }, [menuOpen]);
 
   const hasGeneratedCode = Boolean(deviceData.generatedCode);
   const isInstallCard = status === "to-install" || hasGeneratedCode;
@@ -469,15 +503,31 @@ export default function DeviceCard({
     }
   };
 
-  const terminalDevice = {
-    id,
-    deviceIdentifier,
-    name: deviceData.name,
-    group: deviceData.group,
-    location,
-    date,
-    status: isDisabled ? "disabled" : status,
-  };
+  const terminalDevice = useMemo(
+    () => ({
+      id,
+      deviceIdentifier,
+      name: deviceData.name,
+      group: deviceData.group,
+      location,
+      date,
+      status: isDisabled ? "disabled" : status,
+    }),
+    [
+      date,
+      deviceData.group,
+      deviceData.name,
+      deviceIdentifier,
+      id,
+      isDisabled,
+      location,
+      status,
+    ],
+  );
+
+  const handleCloseTerminal = useCallback(() => {
+    setTerminalOpen(false);
+  }, []);
 
   return (
     <>
@@ -491,19 +541,19 @@ export default function DeviceCard({
             setTerminalOpen(true);
           }
         }}
-        className={`flex h-[223px] w-full cursor-pointer items-center justify-center rounded-[15px] border p-[28px_20px_12px_17px] transition-all duration-300 ease-out ${
+        className={`flex h-[223px] w-full max-w-[315px] cursor-pointer items-stretch justify-center rounded-[15px] border px-[17px] pb-[16px] pt-[24px] transition-all duration-300 ease-out ${
           isDisabled
             ? "border-[#d1d5db] bg-black/10"
             : "border-[#e5e7eb] bg-white hover:shadow-[0_20px_40px_rgba(0,0,0,0.15),0_8px_16px_rgba(0,0,0,0.10)]"
         }`}
       >
-        <div className="flex h-[183px] w-[278px] flex-col justify-between">
-          <div className="flex items-start justify-between">
+        <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
+          <div className="flex min-h-0 items-start justify-between gap-3">
             <div className="flex min-w-0 items-start gap-[12px]">
               <DeviceGlyph statusColor={statusColor} isInstallCard={isInstallCard} />
 
-              <div className="min-w-0">
-                <div className="flex h-[39.884px] flex-col justify-center self-stretch">
+              <div className="min-w-0 flex-1">
+                <div className="flex min-h-[39px] flex-col justify-center self-stretch">
                   <h3
                     className={`truncate font-['DM_Sans'] text-[22px] font-bold leading-[42px] tracking-[-0.44px] ${
                       isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
@@ -513,14 +563,14 @@ export default function DeviceCard({
                   </h3>
                 </div>
                 <p
-                  className={`h-[21.936px] text-[14px] font-medium leading-6 tracking-[-0.28px] ${
+                  className={`mt-1 text-[14px] font-medium leading-6 tracking-[-0.28px] ${
                     isDisabled ? "text-[#6b7280]" : "text-[#6b7280]"
                   }`}
                 >
                   {deviceData.group}
                 </p>
                 <p
-                  className={`h-[21.936px] truncate text-[14px] font-medium leading-6 tracking-[-0.28px] ${
+                  className={`truncate text-[14px] font-medium leading-6 tracking-[-0.28px] ${
                     isDisabled ? "text-[#9ca3af]" : "text-[#9ca3af]"
                   }`}
                 >
@@ -529,7 +579,7 @@ export default function DeviceCard({
               </div>
             </div>
 
-            <div className="relative">
+            <div ref={menuTriggerRef} className="relative">
               <button
                 type="button"
                 onClick={(event) => {
@@ -552,6 +602,7 @@ export default function DeviceCard({
                 <ContextMenu
                   isInstallCard={isInstallCard}
                   isDisabled={isDisabled}
+                  align={menuAlign}
                   onClose={() => setMenuOpen(false)}
                   onEdit={() => setEditModalOpen(true)}
                   onDisable={handleToggleDisable}
@@ -577,13 +628,13 @@ export default function DeviceCard({
             />
           ) : (
             <div
-              className={`flex h-[58px] items-start gap-[10px] self-stretch rounded-[8px] border pb-[13px] pl-[15px] pr-[14px] pt-[12px] ${
+              className={`mt-auto mb-[4px] flex min-h-[54px] w-full min-w-0 items-center gap-[10px] self-stretch rounded-[8px] border px-[15px] py-[10px] sm:min-h-[58px] sm:py-[12px] ${
                 isDisabled
                   ? "border-[#d1d5db] bg-black/10"
                   : "border-[#e5e7eb] bg-gradient-to-r from-[#f0f4f8] to-[#f9fafb]"
               }`}
             >
-              <div className="flex h-[32px] min-w-0 w-[150px] items-center gap-[10px]">
+              <div className="flex min-w-0 flex-1 items-center gap-[10px]">
                 <MarkerPinIcon />
                 <span
                   className={`min-w-0 truncate text-[14px] font-medium ${
@@ -596,7 +647,7 @@ export default function DeviceCard({
 
               <div className={`h-[28px] w-px shrink-0 ${isDisabled ? "bg-[#d1d5db]" : "bg-[#d1d5db]"}`} />
 
-              <div className="flex h-[32px] w-[117px] shrink-0 items-center gap-[10px]">
+              <div className="flex shrink-0 items-center gap-[10px]">
                 <ClockIcon />
                 <span
                   className={`truncate text-[14px] font-medium ${
@@ -728,7 +779,7 @@ export default function DeviceCard({
       <DeviceTerminalModal
         open={terminalOpen}
         device={terminalDevice}
-        onClose={() => setTerminalOpen(false)}
+        onClose={handleCloseTerminal}
       />
     </>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { sendTerminalCommand } from "@/lib/api";
 
 function formatPrompt(session) {
@@ -58,6 +58,25 @@ function extractTerminalOutput(response) {
   return "";
 }
 
+function stripEchoedCommand(output, sentCommand) {
+  const normalizedOutput = String(output || "").replace(/\r\n/g, "\n");
+  const normalizedCommand = String(sentCommand || "").trim();
+
+  if (!normalizedOutput || !normalizedCommand) {
+    return output;
+  }
+
+  const outputLines = normalizedOutput.split("\n");
+  const firstLine = (outputLines[0] || "").trim();
+
+  if (firstLine !== normalizedCommand) {
+    return output;
+  }
+
+  const strippedOutput = outputLines.slice(1).join("\n").replace(/^\n+/, "");
+  return strippedOutput.replace(/\n/g, "\r\n");
+}
+
 function shouldForwardRawKey(data) {
   if (!data) {
     return false;
@@ -86,6 +105,20 @@ function getControlCharacter(key) {
 export default function DeviceTerminalModal({ open, device, onClose }) {
   const terminalHostRef = useRef(null);
   const commandBufferRef = useRef("");
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
+  const handleCloseClick = () => {
+    setShowConfirmation(true);
+  };
+
+  const handleConfirmClose = () => {
+    setShowConfirmation(false);
+    onClose?.();
+  };
+
+  const handleCancelClose = () => {
+    setShowConfirmation(false);
+  };
 
   useEffect(() => {
     if (!open || !terminalHostRef.current || !device) {
@@ -150,8 +183,11 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
       terminal.focus();
       commandBufferRef.current = "";
 
-      const writeBackendOutput = (response) => {
-        const terminalOutput = extractTerminalOutput(response);
+      const writeBackendOutput = (response, sentCommand = "") => {
+        const terminalOutput = stripEchoedCommand(
+          extractTerminalOutput(response),
+          sentCommand,
+        );
 
         if (terminalOutput && terminalOutput !== "Timeout") {
           terminal.write(`\r\n${terminalOutput}`);
@@ -218,7 +254,7 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
             trimmedCommand,
             false,
           );
-          writeBackendOutput(response);
+          writeBackendOutput(response, trimmedCommand);
         } catch (error) {
           terminal.write(
             `\r\n${error?.message || "Failed to send command to device."}`,
@@ -326,11 +362,11 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(3,7,18,0.56)] px-4 py-6 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(3,7,18,0.56)] px-3 py-4 backdrop-blur-[2px] sm:px-4 sm:py-6"
       onClick={onClose}
     >
       <div
-        className="flex h-[min(82vh,640px)] w-full max-w-[980px] flex-col overflow-hidden rounded-[10px] border border-[#7ba9d8] bg-[#000000] shadow-[0_28px_70px_rgba(2,6,23,0.45)]"
+        className="flex h-[min(86dvh,720px)] w-full max-w-[min(96vw,1100px)] flex-col overflow-hidden rounded-[10px] border border-[#7ba9d8] bg-[#000000] shadow-[0_28px_70px_rgba(2,6,23,0.45)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-[#7ba9d8] bg-[#86b6e8] px-4 py-2">
@@ -345,14 +381,14 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleCloseClick}
             className="rounded border border-[#4e7aa8] bg-[#dcecff] px-2.5 py-1 text-[12px] font-medium text-[#163252] transition-colors hover:bg-[#c9e0fb]"
           >
             Close
           </button>
         </div>
 
-        <div className="flex items-center gap-3 border-b border-[#163252] bg-[#050505] px-4 py-2 text-[11px] text-[#bbbbbb]">
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#163252] bg-[#050505] px-4 py-2 text-[11px] text-[#bbbbbb]">
           <span className="rounded border border-[#1f1f1f] bg-[#0c0c0c] px-2 py-1">
             Group: {device.group}
           </span>
@@ -367,10 +403,47 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
         <div className="min-h-0 flex-1 bg-[#000000] p-0">
           <div
             ref={terminalHostRef}
-            className="h-full w-full overflow-hidden bg-[#000000] p-3"
+            className="h-full w-full overflow-hidden bg-[#000000] p-2 sm:p-3"
           />
         </div>
       </div>
+
+      {showConfirmation && (
+        <div 
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(3,7,18,0.8)] backdrop-blur-[2px]"
+          onClick={handleCancelClose}
+        >
+          <div 
+            className="flex w-full max-w-sm flex-col gap-4 rounded-[10px] border border-[#7ba9d8] bg-[#0d1622] p-6 shadow-[0_28px_70px_rgba(2,6,23,0.45)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <h2 className="font-['Poppins'] text-[16px] font-semibold text-[#e8ecf1]">
+                Close Terminal?
+              </h2>
+              <p className="mt-2 text-[13px] text-[#a8aeb8]">
+                Are you sure you want to close this terminal session?
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleCancelClose}
+                className="flex-1 rounded border border-[#4e7aa8] bg-[#1a2942] px-4 py-2 text-[13px] font-medium text-[#86b6e8] transition-colors hover:bg-[#253a52]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClose}
+                className="flex-1 rounded border border-[#d74646] bg-[#8b2c2c] px-4 py-2 text-[13px] font-medium text-[#ff8a8a] transition-colors hover:bg-[#a63c3c]"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
