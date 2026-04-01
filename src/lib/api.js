@@ -193,3 +193,35 @@ export function getUserInfo(token = getStoredAuthToken()) {
     token,
   });
 }
+
+export function updateProfile(payload, token = getStoredAuthToken()) {
+  return apiRequest("/update/profile", {
+    method: "PUT",
+    body: payload,
+    token,
+  });
+}
+
+export function updateEmail(payload, token = getStoredAuthToken()) {
+  return apiRequest("/update/email", {
+    method: "PUT",
+    body: payload,
+    token,
+  });
+}
+
+export function sendEmailOtp(payload, token = getStoredAuthToken()) {
+  return apiRequest("/email/send-otp", {
+    method: "POST",
+    body: payload,
+    token,
+  });
+}
+
+export function verifyEmailOtp(payload, token = getStoredAuthToken()) {
+  return apiRequest("/email/verify-otp", {
+    method: "POST",
+    body: payload,
+    token,
+  });
+}

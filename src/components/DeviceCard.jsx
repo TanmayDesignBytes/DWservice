@@ -13,19 +13,19 @@ import { useCallback, useMemo } from "react";
 
 function DeviceGlyph({ statusColor, isInstallCard = false }) {
   return (
-    <div className="relative flex h-[33px] w-[33px] items-center justify-center rounded-[7px] bg-[#f4f7fe]">
+    <div className="relative flex h-[30px] w-[30px] items-center justify-center rounded-[7px] bg-[#f4f7fe]">
       <span
         className={
           isInstallCard
-            ? "absolute left-0 top-[4px] h-[24px] w-[5px] rounded-[2.5px]"
-            : "absolute left-0 top-1/2 h-[27.364px] w-[4.5px] -translate-y-1/2 rounded-[4px]"
+            ? "absolute left-0 top-[4px] h-[22px] w-[4px] rounded-[2px]"
+            : "absolute left-0 top-1/2 h-[24px] w-[4px] -translate-y-1/2 rounded-[4px]"
         }
         style={{ backgroundColor: statusColor }}
       />
       <img
         src="/respberry.png"
         alt=""
-        className={`aspect-[7/9] h-[18px] w-[14px] shrink-0 object-contain ${statusColor === "#d1d5db" ? "grayscale opacity-60" : ""}`}
+        className={`aspect-[7/9] h-[16px] w-[12px] shrink-0 object-contain ${statusColor === "#d1d5db" ? "grayscale opacity-60" : ""}`}
         aria-hidden="true"
       />
     </div>
@@ -37,7 +37,7 @@ function MarkerPinIcon() {
     <img
       src="/marker-pin-01.svg"
       alt=""
-      className="h-[18px] w-[18px] shrink-0 object-contain"
+      className="h-4 w-4 shrink-0 object-contain"
       aria-hidden="true"
     />
   );
@@ -48,7 +48,7 @@ function ClockIcon() {
     <img
       src="/Time_duotone.svg"
       alt=""
-      className="h-6 w-6 shrink-0 object-contain"
+      className="h-5 w-5 shrink-0 object-contain"
       aria-hidden="true"
     />
   );
@@ -72,10 +72,10 @@ function getStatusLabel(status, isDisabled) {
 
 function CodeFooter({ code, status, isDisabled }) {
   return (
-    <div className="mt-auto mb-[4px] flex min-h-[54px] w-full min-w-0 items-center gap-[10px] self-stretch rounded-[8px] border border-[#e5e7eb] bg-gradient-to-r from-[#f0f4f8] to-[#f9fafb] px-[15px] py-[10px] sm:min-h-[58px] sm:py-[12px]">
+    <div className="mt-auto mb-[4px] flex min-h-[50px] w-full min-w-0 items-center gap-[8px] self-stretch rounded-[8px] border border-[#e5e7eb] bg-gradient-to-r from-[#f0f4f8] to-[#f9fafb] px-[13px] py-[8px] sm:min-h-[54px] sm:py-[10px]">
       <div className="flex min-w-0 flex-1 items-center">
         <span
-          className={`min-w-0 truncate text-[14px] font-medium ${
+          className={`min-w-0 truncate text-[13px] font-medium ${
             isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
           }`}
         >
@@ -83,11 +83,11 @@ function CodeFooter({ code, status, isDisabled }) {
         </span>
       </div>
 
-      <div className="h-[28px] w-px shrink-0 bg-[#d1d5db]" />
+      <div className="h-[24px] w-px shrink-0 bg-[#d1d5db]" />
 
       <div className="flex min-w-0 shrink-0 items-center">
         <span
-          className={`truncate text-[14px] font-medium ${
+          className={`truncate text-[13px] font-medium ${
             isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
           }`}
         >
@@ -541,21 +541,21 @@ export default function DeviceCard({
             setTerminalOpen(true);
           }
         }}
-        className={`flex h-[223px] w-full max-w-[315px] cursor-pointer items-stretch justify-center rounded-[15px] border px-[17px] pb-[16px] pt-[24px] transition-all duration-300 ease-out ${
+        className={`flex h-[202px] w-full max-w-[285px] cursor-pointer items-stretch justify-center rounded-[15px] border px-[15px] pb-[14px] pt-[20px] transition-all duration-300 ease-out ${
           isDisabled
             ? "border-[#d1d5db] bg-black/10"
             : "border-[#e5e7eb] bg-white hover:shadow-[0_20px_40px_rgba(0,0,0,0.15),0_8px_16px_rgba(0,0,0,0.10)]"
         }`}
       >
         <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
-          <div className="flex min-h-0 items-start justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-[12px]">
+          <div className="flex min-h-0 items-start justify-between gap-[10px]">
+            <div className="flex min-w-0 items-start gap-[10px]">
               <DeviceGlyph statusColor={statusColor} isInstallCard={isInstallCard} />
 
               <div className="min-w-0 flex-1">
-                <div className="flex min-h-[39px] flex-col justify-center self-stretch">
+                <div className="flex min-h-[34px] flex-col justify-center self-stretch">
                   <h3
-                    className={`truncate font-['DM_Sans'] text-[22px] font-bold leading-[42px] tracking-[-0.44px] ${
+                    className={`truncate font-['DM_Sans'] text-[20px] font-bold leading-[36px] tracking-[-0.4px] ${
                       isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
                     }`}
                   >
@@ -563,14 +563,14 @@ export default function DeviceCard({
                   </h3>
                 </div>
                 <p
-                  className={`mt-1 text-[14px] font-medium leading-6 tracking-[-0.28px] ${
+                  className={`mt-0.5 text-[13px] font-medium leading-[22px] tracking-[-0.24px] ${
                     isDisabled ? "text-[#6b7280]" : "text-[#6b7280]"
                   }`}
                 >
                   {deviceData.group}
                 </p>
                 <p
-                  className={`truncate text-[14px] font-medium leading-6 tracking-[-0.28px] ${
+                  className={`truncate text-[13px] font-medium leading-[22px] tracking-[-0.24px] ${
                     isDisabled ? "text-[#9ca3af]" : "text-[#9ca3af]"
                   }`}
                 >
@@ -586,16 +586,16 @@ export default function DeviceCard({
                   event.stopPropagation();
                   setMenuOpen((value) => !value);
                 }}
-                className="flex h-[27.364px] w-[26.984px] items-center justify-center transition-opacity hover:opacity-70"
+                className="flex h-6 w-6 items-center justify-center transition-opacity hover:opacity-70"
                 aria-label="Device actions"
               >
                 <span
-                  className="flex h-[17.989px] w-[4.5px] flex-col items-center justify-between"
+                  className="flex h-4 w-1 flex-col items-center justify-between"
                   aria-hidden="true"
                 >
-                  <span className="h-[4.5px] w-[4.5px] rounded-full bg-[#3a3a3e] transition-colors" />
-                  <span className="h-[4.5px] w-[4.5px] rounded-full bg-[#3a3a3e] transition-colors" />
-                  <span className="h-[4.5px] w-[4.5px] rounded-full bg-[#3a3a3e] transition-colors" />
+                  <span className="h-1 w-1 rounded-full bg-[#3a3a3e] transition-colors" />
+                  <span className="h-1 w-1 rounded-full bg-[#3a3a3e] transition-colors" />
+                  <span className="h-1 w-1 rounded-full bg-[#3a3a3e] transition-colors" />
                 </span>
               </button>
               {menuOpen ? (
@@ -628,16 +628,16 @@ export default function DeviceCard({
             />
           ) : (
             <div
-              className={`mt-auto mb-[4px] flex min-h-[54px] w-full min-w-0 items-center gap-[10px] self-stretch rounded-[8px] border px-[15px] py-[10px] sm:min-h-[58px] sm:py-[12px] ${
+              className={`mt-auto mb-[4px] flex min-h-[50px] w-full min-w-0 items-center gap-[8px] self-stretch rounded-[8px] border px-[13px] py-[8px] sm:min-h-[54px] sm:py-[10px] ${
                 isDisabled
                   ? "border-[#d1d5db] bg-black/10"
                   : "border-[#e5e7eb] bg-gradient-to-r from-[#f0f4f8] to-[#f9fafb]"
               }`}
             >
-              <div className="flex min-w-0 flex-1 items-center gap-[10px]">
+              <div className="flex min-w-0 flex-1 items-center gap-[8px]">
                 <MarkerPinIcon />
                 <span
-                  className={`min-w-0 truncate text-[14px] font-medium ${
+                  className={`min-w-0 truncate text-[13px] font-medium ${
                     isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
                   }`}
                 >
@@ -645,12 +645,12 @@ export default function DeviceCard({
                 </span>
               </div>
 
-              <div className={`h-[28px] w-px shrink-0 ${isDisabled ? "bg-[#d1d5db]" : "bg-[#d1d5db]"}`} />
+              <div className={`h-[24px] w-px shrink-0 ${isDisabled ? "bg-[#d1d5db]" : "bg-[#d1d5db]"}`} />
 
-              <div className="flex shrink-0 items-center gap-[10px]">
+              <div className="flex shrink-0 items-center gap-[8px]">
                 <ClockIcon />
                 <span
-                  className={`truncate text-[14px] font-medium ${
+                  className={`truncate text-[13px] font-medium ${
                     isDisabled ? "text-[#9ca3af]" : "text-[#1f2937]"
                   }`}
                 >

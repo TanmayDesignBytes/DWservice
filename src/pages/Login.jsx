@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,55 @@ function BrandMark() {
       alt="Design Bytes"
       className="h-[1.75rem] sm:h-[2.3125rem] w-auto max-w-full object-contain"
     />
+  );
+}
+
+function PasswordField({
+  id,
+  name,
+  label,
+  placeholder,
+  value,
+  onChange,
+  disabled,
+  autoComplete,
+  visible,
+  onToggle,
+}) {
+  return (
+    <div className="flex w-full flex-col items-start gap-[0.25rem] sm:gap-[0.375rem] self-stretch">
+      <label
+        htmlFor={id}
+        className="font-['Poppins'] text-[0.75rem] sm:text-[0.875rem] font-normal leading-[1rem] sm:leading-[1.25rem] text-[#344054]"
+      >
+        {label}
+      </label>
+
+      <div className="relative w-full">
+        <Input
+          id={id}
+          name={name}
+          type={visible ? "text" : "password"}
+          placeholder={placeholder}
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          autoComplete={autoComplete}
+          className="pr-11"
+        />
+
+        <button
+          type="button"
+          onClick={onToggle}
+          disabled={disabled}
+          aria-label={visible ? "Hide password" : "Show password"}
+          aria-pressed={visible}
+          className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-[#667085] transition-colors hover:text-[#344054] disabled:pointer-events-none"
+        >
+          {visible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -176,6 +226,11 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  const [passwordVisibility, setPasswordVisibility] = useState({
+    login: false,
+    signup: false,
+    reset: false,
+  });
 
   useEffect(() => {
     setView(initialView);
@@ -216,6 +271,13 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
     setSignupValues((current) => ({
       ...current,
       [field]: event.target.value,
+    }));
+  };
+
+  const togglePasswordVisibility = (field) => () => {
+    setPasswordVisibility((current) => ({
+      ...current,
+      [field]: !current[field],
     }));
   };
 
@@ -344,7 +406,7 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
       <div className="absolute inset-0 bg-[linear-gradient(180deg,_#f8fbff_0%,_#eef4fb_48%,_#dbe7f4_100%)]" />
       <div className="absolute inset-0 bg-[linear-gradient(to_top,_#5973DC_0%,_rgba(89,115,220,0.75)_28%,_rgba(89,115,220,0.32)_55%,_rgba(89,115,220,0.08)_78%,_rgba(89,115,220,0)_100%)] opacity-75 mix-blend-overlay" />
 
-      <Card className="relative w-full max-w-[32.125rem] rounded-[1rem] sm:rounded-[1.25rem] border-0 bg-[rgba(255,255,255,0.85)] shadow-[0_0.25rem_0.25rem_rgba(0,0,0,0.25)] backdrop-blur-[0.4063rem]">
+      <Card className="relative -translate-y-[28px] w-full max-w-[32.125rem] rounded-[1rem] sm:rounded-[1.25rem] border-0 bg-[rgba(255,255,255,0.85)] shadow-[0_0.25rem_0.25rem_rgba(0,0,0,0.25)] backdrop-blur-[0.4063rem]">
         <CardContent className="p-5 sm:p-[3.125rem]">
           <div className="flex flex-col items-start justify-center gap-6 sm:gap-8">
             <div className="flex w-full flex-col items-start gap-4 sm:gap-6 self-stretch">
@@ -375,6 +437,7 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
             <form
               className="flex w-full flex-col gap-4 sm:gap-6 self-stretch"
               onSubmit={handleSubmit}
+              autoComplete="on"
             >
               <div className="flex w-full flex-col gap-3 sm:gap-4 self-stretch">
                 {view === "signup" ? (
@@ -388,11 +451,13 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
                       </label>
                       <Input
                         id="signup-username"
+                        name="username"
                         type="text"
                         placeholder="Enter your username"
                         value={signupValues.username}
                         onChange={updateSignupField("username")}
                         disabled={isSubmitting}
+                        autoComplete="username"
                       />
                     </div>
 
@@ -405,11 +470,13 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
                       </label>
                       <Input
                         id="signup-email"
+                        name="email"
                         type="email"
                         placeholder="Enter your email"
                         value={signupValues.email}
                         onChange={updateSignupField("email")}
                         disabled={isSubmitting}
+                        autoComplete="email"
                       />
                     </div>
 
@@ -422,11 +489,13 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
                       </label>
                       <Input
                         id="signup-password"
+                        name="password"
                         type="password"
                         placeholder="••••••••"
                         value={signupValues.password}
                         onChange={updateSignupField("password")}
                         disabled={isSubmitting}
+                        autoComplete="new-password"
                       />
                     </div>
                   </>
@@ -442,6 +511,7 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
                     </label>
                     <Input
                       id="email"
+                      name="email"
                       type="email"
                       placeholder="Enter your email"
                       value={view === "login" ? loginValues.email : forgotEmail}
@@ -451,12 +521,13 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
                           : (event) => setForgotEmail(event.target.value)
                       }
                       disabled={isSubmitting}
+                      autoComplete={view === "login" ? "username" : "email"}
                     />
                   </div>
                 )}
 
                 {view === "login" ? (
-                  <div className="flex w-full flex-col items-start gap-[0.25rem] sm:gap-[0.375rem] self-stretch">
+                  <div className="relative flex w-full flex-col items-start gap-[0.25rem] sm:gap-[0.375rem] self-stretch">
                     <label
                       htmlFor="password"
                       className="font-['Poppins'] text-[0.75rem] sm:text-[0.875rem] font-normal leading-[1rem] sm:leading-[1.25rem] text-[#344054]"
@@ -465,12 +536,25 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
                     </label>
                       <Input
                         id="password"
-                        type="password"
+                        name="password"
+                        type={passwordVisibility.login ? "text" : "password"}
                         placeholder="••••••••"
                         value={loginValues.password}
                         onChange={updateLoginField("password")}
                         disabled={isSubmitting}
+                        autoComplete="current-password"
+                        className="pr-11"
                     />
+                    <button
+                      type="button"
+                      onClick={togglePasswordVisibility("login")}
+                      disabled={isSubmitting}
+                      aria-label={passwordVisibility.login ? "Hide password" : "Show password"}
+                      aria-pressed={passwordVisibility.login}
+                      className="absolute bottom-[0.6875rem] right-0 flex w-11 items-center justify-center text-[#667085] transition-colors hover:text-[#344054] disabled:pointer-events-none"
+                    >
+                      {passwordVisibility.login ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
                   </div>
                 ) : null}
 

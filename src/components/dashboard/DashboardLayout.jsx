@@ -12,6 +12,7 @@ const CUSTOM_SCROLLBAR_WIDTH = 0.625; // 10px → 0.625rem
 const CUSTOM_SCROLLBAR_THUMB_HEIGHT = 22.75; // 364px → 22.75rem
 const LOCAL_PROFILE_KEY = "dws.auth.profile";
 const SESSION_PROFILE_KEY = "dws.auth.session.profile";
+const PROFILE_UPDATED_EVENT = "dws:profile-updated";
 
 const DEFAULT_USER_PROFILE = {
   username: "User",
@@ -361,7 +362,7 @@ function ExpandableSearchButton({ value = "", onChange }) {
   return (
     <div
       ref={rootRef}
-      className="relative h-9 w-9 shrink-0 overflow-visible"
+      className="relative h-[33px] w-[33px] shrink-0 overflow-visible"
       onMouseEnter={() => {
         if (!isExpanded) setIsHovered(true);
       }}
@@ -371,7 +372,7 @@ function ExpandableSearchButton({ value = "", onChange }) {
     >
       <div
         className={[
-          "absolute right-0 top-0 h-9 overflow-hidden rounded-full bg-white",
+          "absolute right-0 top-0 h-[33px] overflow-hidden rounded-full bg-white",
           "border transition-[width,border-color,box-shadow] duration-300 ease-in-out",
           isFocused
             ? "border-[#bfdbfe] shadow-[0_10px_30px_rgba(15,23,42,0.10),0_0_0_4px_rgba(59,130,246,0.08)]"
@@ -697,15 +698,41 @@ export default function DashboardLayout({
     };
   }, []);
 
+  useEffect(() => {
+    const handleProfileUpdate = (event) => {
+      const nextProfile = event.detail;
+
+      if (nextProfile && typeof nextProfile === "object") {
+        setUserProfile((current) => ({
+          ...current,
+          ...nextProfile,
+        }));
+      }
+    };
+
+    window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdate);
+
+    return () => {
+      window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdate);
+    };
+  }, []);
+
   return (
   <div className="dashboard-stage h-full w-full overflow-hidden">
     <div className="dashboard-shell flex h-full min-h-0 w-full flex-col overflow-hidden bg-white">
 
       {/* HEADER */}
-      <header className="relative z-[30] flex shrink-0 h-[66px] items-center justify-between bg-gradient-to-r from-white to-[#fafbfc] px-4 py-3 sm:h-[70px] sm:px-6 lg:h-[74px] lg:px-5 lg:py-4">
-        <DashboardLogo />
+      <header className="relative z-[30] flex shrink-0 h-[60px] items-center justify-between bg-gradient-to-r from-white to-[#fafbfc] px-4 py-2.5 sm:h-[64px] sm:px-5 lg:h-[68px] lg:px-4 lg:py-3">
+        <button
+          type="button"
+          onClick={() => onNavigate?.("/dashboard")}
+          className="shrink-0 transition-opacity hover:opacity-85"
+          aria-label="Go to dashboard"
+        >
+          <DashboardLogo />
+        </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <ExpandableSearchButton
             value={searchValue}
             onChange={onSearchChange}
@@ -741,7 +768,7 @@ export default function DashboardLayout({
       <div className="relative z-[1] flex flex-1 min-h-0 gap-0 px-3 pt-0 sm:px-4 lg:px-0">
 
         {/* SIDEBAR */}
-        <div className="hidden md:block lg:w-[98px] lg:pl-[18px] shrink-0">
+        <div className="hidden shrink-0 md:block lg:w-[88px] lg:pl-[14px]">
           <Sidebar pathname={pathname} onNavigate={onNavigate} />
         </div>
 
@@ -750,7 +777,7 @@ export default function DashboardLayout({
 
           {/* TOOLBAR */}
           {toolbar && (
-            <div className="shrink-0 px-4 pb-4 pt-4 sm:px-6 md:px-6 lg:px-10 lg:pb-5 lg:pt-5">
+            <div className="shrink-0 px-4 pb-3 pt-3 sm:px-5 md:px-5 lg:px-8 lg:pb-4 lg:pt-4">
               {toolbar}
               <div className="mt-4 h-px bg-[#eef1f5] lg:mt-5" />
             </div>
@@ -764,7 +791,7 @@ export default function DashboardLayout({
         </div>
 
         {/* RIGHT SPACER */}
-        <div className="hidden lg:block lg:w-[24px] shrink-0" />
+        <div className="hidden shrink-0 lg:block lg:w-[16px]" />
 
       </div>
     </div>

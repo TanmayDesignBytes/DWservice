@@ -105,6 +105,7 @@ function getControlCharacter(key) {
 export default function DeviceTerminalModal({ open, device, onClose }) {
   const terminalHostRef = useRef(null);
   const commandBufferRef = useRef("");
+  const interactiveModeRef = useRef(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   const handleCloseClick = () => {
@@ -143,11 +144,12 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
       const session = sessionResponse?.session || null;
       const promptConfig = formatPrompt(session);
       const { prompt } = promptConfig;
+      const shellPromptPrefix = `${promptConfig.user}@${promptConfig.host}:`;
       const terminal = new Terminal({
         cursorBlink: true,
         convertEol: true,
         fontFamily: '"Courier New", Consolas, monospace',
-        fontSize: 16,
+        fontSize: 15,
         lineHeight: 1.2,
         cursorStyle: "block",
         cursorInactiveStyle: "block",
@@ -183,13 +185,38 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
       terminal.focus();
       commandBufferRef.current = "";
 
+      const resetTerminalViewport = () => {
+        terminal.write("\u001b[2J\u001b[3J\u001b[H");
+      };
+
+      const hasShellPrompt = (value) =>
+        String(value || "")
+          .replace(/\r\n/g, "\n")
+          .split("\n")
+          .some(
+            (line) =>
+              line.includes(shellPromptPrefix) && /[$#]\s*$/.test(line.trim()),
+          );
+
       const writeBackendOutput = (response, sentCommand = "") => {
         const terminalOutput = stripEchoedCommand(
           extractTerminalOutput(response),
-          sentCommand,
+          interactiveModeRef.current ? "" : sentCommand,
         );
 
         if (terminalOutput && terminalOutput !== "Timeout") {
+          if (interactiveModeRef.current) {
+            if (hasShellPrompt(terminalOutput)) {
+              interactiveModeRef.current = false;
+              terminal.write("\u001b[?1049l");
+              terminal.write(terminalOutput);
+              return;
+            }
+
+            terminal.write(terminalOutput);
+            return;
+          }
+
           terminal.write(`\r\n${terminalOutput}`);
         }
       };
@@ -218,6 +245,9 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
       const runCommand = async (rawCommand) => {
         const trimmedCommand = rawCommand.trim();
         const command = trimmedCommand.toLowerCase();
+        const isInteractiveEditorCommand = /^(nano|vim|vi|less|more)\b/.test(
+          command,
+        );
 
         if (!trimmedCommand) {
           terminal.write("\r\n");
@@ -226,7 +256,7 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
         }
 
         if (command === "clear") {
-          terminal.clear();
+          resetTerminalViewport();
           terminal.write(prompt);
           return;
         }
@@ -249,6 +279,10 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
         }
 
         try {
+          if (isInteractiveEditorCommand) {
+            interactiveModeRef.current = true;
+          }
+
           const response = await sendTerminalCommand(
             device.deviceIdentifier,
             trimmedCommand,
@@ -260,7 +294,9 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
             `\r\n${error?.message || "Failed to send command to device."}`,
           );
         } finally {
-          terminal.write(`\r\n${prompt}`);
+          if (!isInteractiveEditorCommand) {
+            terminal.write(`\r\n${prompt}`);
+          }
         }
       };
 
@@ -283,8 +319,10 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
 
           if (controlCharacter === "\u0003") {
             commandBufferRef.current = "";
-            terminal.write("^C");
-            terminal.write(`\r\n${prompt}`);
+            if (!interactiveModeRef.current) {
+              terminal.write("^C");
+              terminal.write(`\r\n${prompt}`);
+            }
           }
 
           void sendRawImmediately(controlCharacter);
@@ -297,6 +335,11 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
       const dataDisposable = terminal.onData((data) => {
         if (!device.deviceIdentifier) {
           terminal.write("\r\nDevice agent id is missing.");
+          return;
+        }
+
+        if (interactiveModeRef.current) {
+          void sendRawImmediately(data);
           return;
         }
 
@@ -362,19 +405,19 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(3,7,18,0.56)] px-3 py-4 backdrop-blur-[2px] sm:px-4 sm:py-6"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(3,7,18,0.56)] px-3 py-4 backdrop-blur-[2px] sm:px-4 sm:py-5"
       onClick={onClose}
     >
       <div
-        className="flex h-[min(86dvh,720px)] w-full max-w-[min(96vw,1100px)] flex-col overflow-hidden rounded-[10px] border border-[#7ba9d8] bg-[#000000] shadow-[0_28px_70px_rgba(2,6,23,0.45)]"
+        className="flex h-[min(78dvh,620px)] w-full max-w-[min(92vw,900px)] flex-col overflow-hidden rounded-[10px] border border-[#7ba9d8] bg-[#000000] shadow-[0_28px_70px_rgba(2,6,23,0.45)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-[#7ba9d8] bg-[#86b6e8] px-4 py-2">
           <div>
-            <p className="font-['Poppins'] text-[15px] font-semibold text-[#08111f]">
+            <p className="font-['Poppins'] text-[14px] font-semibold text-[#08111f]">
               {device.name} SSH Console
             </p>
-            <p className="text-[11px] text-[#163252]">
+            <p className="text-[10px] text-[#163252]">
               Remote terminal session
             </p>
           </div>
@@ -382,13 +425,13 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
           <button
             type="button"
             onClick={handleCloseClick}
-            className="rounded border border-[#4e7aa8] bg-[#dcecff] px-2.5 py-1 text-[12px] font-medium text-[#163252] transition-colors hover:bg-[#c9e0fb]"
+            className="rounded border border-[#4e7aa8] bg-[#dcecff] px-2.5 py-1 text-[11px] font-medium text-[#163252] transition-colors hover:bg-[#c9e0fb]"
           >
             Close
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 border-b border-[#163252] bg-[#050505] px-4 py-2 text-[11px] text-[#bbbbbb]">
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#163252] bg-[#050505] px-4 py-2 text-[10px] text-[#bbbbbb]">
           <span className="rounded border border-[#1f1f1f] bg-[#0c0c0c] px-2 py-1">
             Group: {device.group}
           </span>
@@ -403,7 +446,7 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
         <div className="min-h-0 flex-1 bg-[#000000] p-0">
           <div
             ref={terminalHostRef}
-            className="h-full w-full overflow-hidden bg-[#000000] p-2 sm:p-3"
+            className="h-full w-full overflow-hidden bg-[#000000] p-2"
           />
         </div>
       </div>
