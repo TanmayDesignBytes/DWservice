@@ -723,7 +723,14 @@ export default function DashboardLayout({
 
       {/* HEADER */}
       <header className="relative z-[30] flex shrink-0 h-[60px] items-center justify-between bg-gradient-to-r from-white to-[#fafbfc] px-4 py-2.5 sm:h-[64px] sm:px-5 lg:h-[68px] lg:px-4 lg:py-3">
-        <DashboardLogo />
+        <button
+          type="button"
+          onClick={() => onNavigate?.("/dashboard")}
+          className="shrink-0 transition-opacity hover:opacity-85"
+          aria-label="Go to dashboard"
+        >
+          <DashboardLogo />
+        </button>
 
         <div className="flex items-center gap-2.5">
           <ExpandableSearchButton

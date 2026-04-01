@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import { getUserInfo, updateEmail, updateProfile } from "@/lib/api";
+import { getUserInfo, sendEmailOtp, updateProfile, verifyEmailOtp } from "@/lib/api";
 
 const LOCAL_PROFILE_KEY = "dws.auth.profile";
 const SESSION_PROFILE_KEY = "dws.auth.session.profile";
@@ -17,6 +17,10 @@ const DEFAULT_ACCOUNT = {
 const DEFAULT_EMAIL_MODAL = {
   newEmail: "",
   currentPassword: "",
+};
+
+const DEFAULT_OTP_MODAL = {
+  otp: "",
 };
 
 function readStoredProfile() {
@@ -194,6 +198,75 @@ function ChangeEmailModal({
   );
 }
 
+function EmailOtpModal({
+  email,
+  values,
+  isLoading,
+  error,
+  onChange,
+  onConfirm,
+  onClose,
+}) {
+  return (
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[rgba(15,23,42,0.36)] p-4 backdrop-blur-[2px]">
+      <div className="w-full max-w-[420px] overflow-hidden rounded-[16px] bg-white shadow-[0_25px_50px_rgba(15,23,42,0.22)]">
+        <div className="flex items-center justify-between border-b border-[#eaecf0] px-6 py-4">
+          <h3 className="font-['Inter'] text-[18px] font-semibold text-[#101828]">
+            Enter OTP
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-[#475467] transition-colors hover:bg-[#f2f4f7]"
+            aria-label="Close OTP modal"
+          >
+            <span className="text-[22px] leading-none">&times;</span>
+          </button>
+        </div>
+
+        <div className="grid gap-4 px-6 py-5">
+          <p className="font-['Inter'] text-[14px] leading-6 text-[#475467]">
+            Enter the OTP sent to{" "}
+            <span className="font-semibold text-[#101828]">{email || "your new email"}</span>.
+          </p>
+
+          <AccountField
+            label="OTP"
+            value={values.otp}
+            onChange={onChange("otp")}
+            placeholder="Enter OTP"
+          />
+
+          {error ? (
+            <div className="rounded-[12px] border border-[#fecdca] bg-[#fef3f2] px-4 py-3 font-['Inter'] text-[14px] text-[#b42318]">
+              {error}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex justify-end gap-3 border-t border-[#eaecf0] px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isLoading}
+            className="rounded-[12px] border border-[#d0d5dd] bg-white px-5 py-3 font-['Inter'] text-[14px] font-semibold text-[#475467] transition-colors hover:bg-[#f8fafc]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isLoading}
+            className="rounded-[12px] bg-[linear-gradient(118deg,#2970FF_9.79%,#193D9E_97.55%)] px-5 py-3 font-['Inter'] text-[14px] font-semibold text-white shadow-[0_8px_18px_rgba(41,112,255,0.28)] transition-transform hover:translate-y-[-1px]"
+          >
+            {isLoading ? "Verifying..." : "Verify OTP"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MyAccount({ pathname, onNavigate, onSignOut }) {
   const storedProfile = useMemo(() => readStoredProfile(), []);
   const [accountDetails, setAccountDetails] = useState(() => ({
@@ -206,8 +279,12 @@ export default function MyAccount({ pathname, onNavigate, onSignOut }) {
   const [profileSuccess, setProfileSuccess] = useState("");
   const [isChangeEmailOpen, setIsChangeEmailOpen] = useState(false);
   const [emailModalDetails, setEmailModalDetails] = useState(DEFAULT_EMAIL_MODAL);
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [otpModalDetails, setOtpModalDetails] = useState(DEFAULT_OTP_MODAL);
   const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
   const [emailError, setEmailError] = useState("");
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -248,6 +325,13 @@ export default function MyAccount({ pathname, onNavigate, onSignOut }) {
 
   const updateEmailModalField = (field) => (event) => {
     setEmailModalDetails((current) => ({
+      ...current,
+      [field]: event.target.value,
+    }));
+  };
+
+  const updateOtpModalField = (field) => (event) => {
+    setOtpModalDetails((current) => ({
       ...current,
       [field]: event.target.value,
     }));
@@ -298,7 +382,10 @@ export default function MyAccount({ pathname, onNavigate, onSignOut }) {
 
   const openChangeEmailModal = () => {
     setEmailError("");
+    setOtpError("");
     setEmailModalDetails(DEFAULT_EMAIL_MODAL);
+    setOtpModalDetails(DEFAULT_OTP_MODAL);
+    setIsOtpModalOpen(false);
     setIsChangeEmailOpen(true);
   };
 
@@ -312,14 +399,42 @@ export default function MyAccount({ pathname, onNavigate, onSignOut }) {
     setEmailModalDetails(DEFAULT_EMAIL_MODAL);
   };
 
+  const closeOtpModal = () => {
+    if (isVerifyingOtp) {
+      return;
+    }
+
+    setIsOtpModalOpen(false);
+    setOtpError("");
+    setOtpModalDetails(DEFAULT_OTP_MODAL);
+  };
+
   const handleConfirmEmailChange = async () => {
     setEmailError("");
     setIsUpdatingEmail(true);
 
     try {
-      const response = await updateEmail({
+      await sendEmailOtp({
         newEmail: emailModalDetails.newEmail,
         currentPassword: emailModalDetails.currentPassword,
+      });
+      setIsChangeEmailOpen(false);
+      setOtpError("");
+      setIsOtpModalOpen(true);
+    } catch (error) {
+      setEmailError(error?.message || "Unable to update email right now.");
+    } finally {
+      setIsUpdatingEmail(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setOtpError("");
+    setIsVerifyingOtp(true);
+
+    try {
+      const response = await verifyEmailOtp({
+        otp: otpModalDetails.otp,
       });
 
       const nextEmail =
@@ -340,12 +455,14 @@ export default function MyAccount({ pathname, onNavigate, onSignOut }) {
         ...current,
         email: nextEmail,
       }));
-      setIsChangeEmailOpen(false);
+      setProfileSuccess("Email updated successfully.");
+      setIsOtpModalOpen(false);
+      setOtpModalDetails(DEFAULT_OTP_MODAL);
       setEmailModalDetails(DEFAULT_EMAIL_MODAL);
     } catch (error) {
-      setEmailError(error?.message || "Unable to update email right now.");
+      setOtpError(error?.message || "Unable to verify OTP right now.");
     } finally {
-      setIsUpdatingEmail(false);
+      setIsVerifyingOtp(false);
     }
   };
 
@@ -475,6 +592,18 @@ export default function MyAccount({ pathname, onNavigate, onSignOut }) {
           onChange={updateEmailModalField}
           onConfirm={handleConfirmEmailChange}
           onClose={closeChangeEmailModal}
+        />
+      ) : null}
+
+      {isOtpModalOpen ? (
+        <EmailOtpModal
+          email={emailModalDetails.newEmail}
+          values={otpModalDetails}
+          isLoading={isVerifyingOtp}
+          error={otpError}
+          onChange={updateOtpModalField}
+          onConfirm={handleVerifyOtp}
+          onClose={closeOtpModal}
         />
       ) : null}
     </>

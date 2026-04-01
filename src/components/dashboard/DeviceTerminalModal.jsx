@@ -105,6 +105,7 @@ function getControlCharacter(key) {
 export default function DeviceTerminalModal({ open, device, onClose }) {
   const terminalHostRef = useRef(null);
   const commandBufferRef = useRef("");
+  const interactiveModeRef = useRef(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
   const handleCloseClick = () => {
@@ -143,6 +144,7 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
       const session = sessionResponse?.session || null;
       const promptConfig = formatPrompt(session);
       const { prompt } = promptConfig;
+      const shellPromptPrefix = `${promptConfig.user}@${promptConfig.host}:`;
       const terminal = new Terminal({
         cursorBlink: true,
         convertEol: true,
@@ -183,13 +185,38 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
       terminal.focus();
       commandBufferRef.current = "";
 
+      const resetTerminalViewport = () => {
+        terminal.write("\u001b[2J\u001b[3J\u001b[H");
+      };
+
+      const hasShellPrompt = (value) =>
+        String(value || "")
+          .replace(/\r\n/g, "\n")
+          .split("\n")
+          .some(
+            (line) =>
+              line.includes(shellPromptPrefix) && /[$#]\s*$/.test(line.trim()),
+          );
+
       const writeBackendOutput = (response, sentCommand = "") => {
         const terminalOutput = stripEchoedCommand(
           extractTerminalOutput(response),
-          sentCommand,
+          interactiveModeRef.current ? "" : sentCommand,
         );
 
         if (terminalOutput && terminalOutput !== "Timeout") {
+          if (interactiveModeRef.current) {
+            if (hasShellPrompt(terminalOutput)) {
+              interactiveModeRef.current = false;
+              terminal.write("\u001b[?1049l");
+              terminal.write(terminalOutput);
+              return;
+            }
+
+            terminal.write(terminalOutput);
+            return;
+          }
+
           terminal.write(`\r\n${terminalOutput}`);
         }
       };
@@ -218,6 +245,9 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
       const runCommand = async (rawCommand) => {
         const trimmedCommand = rawCommand.trim();
         const command = trimmedCommand.toLowerCase();
+        const isInteractiveEditorCommand = /^(nano|vim|vi|less|more)\b/.test(
+          command,
+        );
 
         if (!trimmedCommand) {
           terminal.write("\r\n");
@@ -226,7 +256,7 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
         }
 
         if (command === "clear") {
-          terminal.clear();
+          resetTerminalViewport();
           terminal.write(prompt);
           return;
         }
@@ -249,6 +279,10 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
         }
 
         try {
+          if (isInteractiveEditorCommand) {
+            interactiveModeRef.current = true;
+          }
+
           const response = await sendTerminalCommand(
             device.deviceIdentifier,
             trimmedCommand,
@@ -260,7 +294,9 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
             `\r\n${error?.message || "Failed to send command to device."}`,
           );
         } finally {
-          terminal.write(`\r\n${prompt}`);
+          if (!isInteractiveEditorCommand) {
+            terminal.write(`\r\n${prompt}`);
+          }
         }
       };
 
@@ -283,8 +319,10 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
 
           if (controlCharacter === "\u0003") {
             commandBufferRef.current = "";
-            terminal.write("^C");
-            terminal.write(`\r\n${prompt}`);
+            if (!interactiveModeRef.current) {
+              terminal.write("^C");
+              terminal.write(`\r\n${prompt}`);
+            }
           }
 
           void sendRawImmediately(controlCharacter);
@@ -297,6 +335,11 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
       const dataDisposable = terminal.onData((data) => {
         if (!device.deviceIdentifier) {
           terminal.write("\r\nDevice agent id is missing.");
+          return;
+        }
+
+        if (interactiveModeRef.current) {
+          void sendRawImmediately(data);
           return;
         }
 

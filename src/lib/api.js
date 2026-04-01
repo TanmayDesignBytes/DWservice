@@ -209,3 +209,19 @@ export function updateEmail(payload, token = getStoredAuthToken()) {
     token,
   });
 }
+
+export function sendEmailOtp(payload, token = getStoredAuthToken()) {
+  return apiRequest("/email/send-otp", {
+    method: "POST",
+    body: payload,
+    token,
+  });
+}
+
+export function verifyEmailOtp(payload, token = getStoredAuthToken()) {
+  return apiRequest("/email/verify-otp", {
+    method: "POST",
+    body: payload,
+    token,
+  });
+}
