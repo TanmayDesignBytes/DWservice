@@ -344,7 +344,7 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
       <div className="absolute inset-0 bg-[linear-gradient(180deg,_#f8fbff_0%,_#eef4fb_48%,_#dbe7f4_100%)]" />
       <div className="absolute inset-0 bg-[linear-gradient(to_top,_#5973DC_0%,_rgba(89,115,220,0.75)_28%,_rgba(89,115,220,0.32)_55%,_rgba(89,115,220,0.08)_78%,_rgba(89,115,220,0)_100%)] opacity-75 mix-blend-overlay" />
 
-      <Card className="relative w-full max-w-[32.125rem] rounded-[1rem] sm:rounded-[1.25rem] border-0 bg-[rgba(255,255,255,0.85)] shadow-[0_0.25rem_0.25rem_rgba(0,0,0,0.25)] backdrop-blur-[0.4063rem]">
+      <Card className="relative -translate-y-[28px] w-full max-w-[32.125rem] rounded-[1rem] sm:rounded-[1.25rem] border-0 bg-[rgba(255,255,255,0.85)] shadow-[0_0.25rem_0.25rem_rgba(0,0,0,0.25)] backdrop-blur-[0.4063rem]">
         <CardContent className="p-5 sm:p-[3.125rem]">
           <div className="flex flex-col items-start justify-center gap-6 sm:gap-8">
             <div className="flex w-full flex-col items-start gap-4 sm:gap-6 self-stretch">

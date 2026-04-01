@@ -451,11 +451,11 @@ export default function Dashboard({
   }, []);
 
   const toolbar = (
-    <div className="flex w-full min-w-0 flex-col items-center gap-2 sm:gap-3 md:gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <div className="relative mx-auto inline-flex h-[57px] w-full min-w-0 max-w-full sm:max-w-[669px] items-center rounded-[79.177px] border border-[#f0f0f0] bg-white p-[6px] shadow-[0_3.167px_12.668px_rgba(0,0,0,0.05)] lg:mx-0 lg:w-[669px] lg:max-w-[669px]">
+    <div className="flex w-full min-w-0 flex-col items-center gap-2 sm:gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="relative mx-auto inline-flex h-[52px] w-full min-w-0 max-w-full sm:max-w-[610px] items-center rounded-[72px] border border-[#f0f0f0] bg-white p-[5px] shadow-[0_3.167px_12.668px_rgba(0,0,0,0.05)] lg:mx-0 lg:w-[610px] lg:max-w-[610px]">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-[6px] top-[6px] rounded-[21.774px] bg-[#2970ff] shadow-[0_3.167px_3.167px_rgba(0,0,0,0.15)] transition-all duration-300 ease-out"
+          className="pointer-events-none absolute bottom-[5px] top-[5px] rounded-[19px] bg-[#2970ff] shadow-[0_3.167px_3.167px_rgba(0,0,0,0.15)] transition-all duration-300 ease-out"
           style={{
             width: activeTabStyle.width,
             transform: `translateX(${activeTabStyle.left}px)`,
@@ -471,7 +471,7 @@ export default function Dashboard({
             }}
             onClick={() => setSelectedTab(tab.id)}
             className={cn(
-              "relative z-[1] flex min-w-0 h-[44px] flex-1 items-center justify-center rounded-[21.774px] px-1 text-[15px] font-semibold leading-[19.002px] transition-colors duration-300 ease-out sm:px-2 sm:text-[16px] md:text-[18px]",
+              "relative z-[1] flex min-w-0 h-[40px] flex-1 items-center justify-center rounded-[19px] px-1 text-[14px] font-semibold leading-[18px] transition-colors duration-300 ease-out sm:px-2 sm:text-[15px] md:text-[16px]",
               selectedTab === tab.id && "text-white",
               selectedTab !== tab.id && "text-[rgba(0,0,0,0.75)]",
             )}
@@ -487,7 +487,7 @@ export default function Dashboard({
             type="button"
             onClick={() => setGroupMenuOpen((value) => !value)}
             className={cn(
-              "flex h-[56px] w-full items-center justify-between rounded-[10px] border px-4 text-[14px] font-semibold leading-[19.002px] sm:w-auto sm:min-w-[200px] sm:px-[30px] sm:text-[16px] lg:w-[234px]",
+              "flex h-[50px] w-full items-center justify-between rounded-[10px] border px-4 text-[13px] font-semibold leading-[18px] sm:w-auto sm:min-w-[190px] sm:px-[24px] sm:text-[15px] lg:w-[212px]",
               selectedGroup
                 ? "border-[#2970ff] bg-[#f0f4f8] text-[#2970ff]"
                 : "border-[#ececec] bg-white text-[rgba(0,0,0,0.75)]",
@@ -502,12 +502,12 @@ export default function Dashboard({
               src="/chevron-down.svg"
               alt=""
               aria-hidden="true"
-              className="h-6 w-6 shrink-0 object-contain"
+              className="h-5 w-5 shrink-0 object-contain"
             />
           </button>
 
           {groupMenuOpen && (
-            <div className="absolute left-0 top-full z-50 mt-2 w-[234px] rounded-[8px] border border-[#ececec] bg-white py-1 shadow-[0_4px_4px_rgba(0,0,0,0.25),0_12px_20px_rgba(7,6,18,0.25)]">
+            <div className="absolute left-0 top-full z-50 mt-2 w-[212px] rounded-[8px] border border-[#ececec] bg-white py-1 shadow-[0_4px_4px_rgba(0,0,0,0.25),0_12px_20px_rgba(7,6,18,0.25)]">
               {selectedGroup ? (
                 <>
                   <button
@@ -542,12 +542,12 @@ export default function Dashboard({
         <button
           type="button"
           onClick={handleOpenAddDevice}
-          className="flex h-[56px] w-full items-center justify-center gap-[6px] rounded-[28px] bg-[linear-gradient(118deg,#2970FF_9.79%,#193D9E_97.55%)] px-4 text-[14px] font-semibold leading-[19.002px] text-white sm:w-auto sm:min-w-[140px] sm:justify-start sm:pl-4 sm:pr-[14px] sm:text-[16px] lg:w-[148px]"
+          className="flex h-[50px] w-full items-center justify-center gap-[6px] rounded-[25px] bg-[linear-gradient(118deg,#2970FF_9.79%,#193D9E_97.55%)] px-4 text-[13px] font-semibold leading-[18px] text-white sm:w-auto sm:min-w-[132px] sm:justify-start sm:pl-4 sm:pr-[14px] sm:text-[15px] lg:w-[136px]"
         >
           <img
             src="/plus.svg"
             alt=""
-            className="h-[21px] w-[21px] shrink-0 object-contain"
+            className="h-[18px] w-[18px] shrink-0 object-contain"
             aria-hidden="true"
           />
           <span>Add Device</span>
@@ -567,7 +567,7 @@ export default function Dashboard({
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
       >
-        <div className="shrink-0 pb-4 pt-1 pl-4 pr-4 sm:pb-6 sm:pt-3 sm:pl-6 sm:pr-6 md:pb-7 md:pt-4 md:pl-8 md:pr-8 lg:pt-[6px] lg:pl-[43px] lg:pr-[41px]">
+        <div className="shrink-0 pb-4 pt-1 pl-4 pr-4 sm:pb-5 sm:pt-2 sm:pl-5 sm:pr-5 md:pb-6 md:pt-3 md:pl-6 md:pr-6 lg:pt-[4px] lg:pl-[36px] lg:pr-[34px]">
           {emptyStateMessage ? (
             <div className="flex h-[300px] items-center justify-center sm:h-[400px]">
               <div className="px-4 text-center">
@@ -577,7 +577,7 @@ export default function Dashboard({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 justify-items-center gap-4 sm:grid-cols-2 md:grid-cols-3 md:justify-items-center xl:[grid-template-columns:repeat(4,minmax(0,315px))] xl:justify-between xl:gap-[15px]">
+            <div className="grid grid-cols-1 justify-items-center gap-4 sm:grid-cols-2 md:grid-cols-3 md:justify-items-center xl:[grid-template-columns:repeat(4,minmax(0,285px))] xl:justify-between xl:gap-[14px]">
               {filteredDevices.map((device) => (
                 <DeviceCard
                   key={device.id}

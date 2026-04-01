@@ -147,7 +147,7 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
         cursorBlink: true,
         convertEol: true,
         fontFamily: '"Courier New", Consolas, monospace',
-        fontSize: 16,
+        fontSize: 15,
         lineHeight: 1.2,
         cursorStyle: "block",
         cursorInactiveStyle: "block",
@@ -362,19 +362,19 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(3,7,18,0.56)] px-3 py-4 backdrop-blur-[2px] sm:px-4 sm:py-6"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(3,7,18,0.56)] px-3 py-4 backdrop-blur-[2px] sm:px-4 sm:py-5"
       onClick={onClose}
     >
       <div
-        className="flex h-[min(86dvh,720px)] w-full max-w-[min(96vw,1100px)] flex-col overflow-hidden rounded-[10px] border border-[#7ba9d8] bg-[#000000] shadow-[0_28px_70px_rgba(2,6,23,0.45)]"
+        className="flex h-[min(78dvh,620px)] w-full max-w-[min(92vw,900px)] flex-col overflow-hidden rounded-[10px] border border-[#7ba9d8] bg-[#000000] shadow-[0_28px_70px_rgba(2,6,23,0.45)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-[#7ba9d8] bg-[#86b6e8] px-4 py-2">
           <div>
-            <p className="font-['Poppins'] text-[15px] font-semibold text-[#08111f]">
+            <p className="font-['Poppins'] text-[14px] font-semibold text-[#08111f]">
               {device.name} SSH Console
             </p>
-            <p className="text-[11px] text-[#163252]">
+            <p className="text-[10px] text-[#163252]">
               Remote terminal session
             </p>
           </div>
@@ -382,13 +382,13 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
           <button
             type="button"
             onClick={handleCloseClick}
-            className="rounded border border-[#4e7aa8] bg-[#dcecff] px-2.5 py-1 text-[12px] font-medium text-[#163252] transition-colors hover:bg-[#c9e0fb]"
+            className="rounded border border-[#4e7aa8] bg-[#dcecff] px-2.5 py-1 text-[11px] font-medium text-[#163252] transition-colors hover:bg-[#c9e0fb]"
           >
             Close
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 border-b border-[#163252] bg-[#050505] px-4 py-2 text-[11px] text-[#bbbbbb]">
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#163252] bg-[#050505] px-4 py-2 text-[10px] text-[#bbbbbb]">
           <span className="rounded border border-[#1f1f1f] bg-[#0c0c0c] px-2 py-1">
             Group: {device.group}
           </span>
@@ -403,7 +403,7 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
         <div className="min-h-0 flex-1 bg-[#000000] p-0">
           <div
             ref={terminalHostRef}
-            className="h-full w-full overflow-hidden bg-[#000000] p-2 sm:p-3"
+            className="h-full w-full overflow-hidden bg-[#000000] p-2"
           />
         </div>
       </div>
