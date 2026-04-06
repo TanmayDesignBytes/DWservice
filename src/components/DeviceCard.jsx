@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import AddDeviceModal from "@/components/dashboard/AddDeviceModal";
 import DeviceTerminalModal from "@/components/dashboard/DeviceTerminalModal";
+import FilesAndFolderModal from "@/components/dashboard/FilesAndFolderModal";
 import {
   deleteDevice,
   rebootAgent,
@@ -241,6 +242,7 @@ function ContextMenu({
   align = "center",
   onClose,
   onEdit,
+  onFilesAndFolder,
   onDisable,
   onDelete,
   onRebootOs,
@@ -262,10 +264,12 @@ function ContextMenu({
   const items = isInstallCard
     ? [
         { icon: "/edit-03.svg", label: "Edit", action: "edit" },
+        { icon: "/files-02.svg", label: "Files and Folder", action: "files-and-folder" },
         { icon: "/trash-01.svg", label: "Delete", action: "delete" },
       ]
     : [
         { icon: "/edit-03.svg", label: "Edit", action: "edit" },
+        { icon: "/files-02.svg", label: "Files and Folder", action: "files-and-folder" },
         {
           icon: "/eye-off.svg",
           label: isDisabled ? "Enable" : "Disable",
@@ -302,6 +306,8 @@ function ContextMenu({
             event.stopPropagation();
             if (item.action === "edit") {
               onEdit();
+            } else if (item.action === "files-and-folder") {
+              onFilesAndFolder();
             } else if (item.action === "disable") {
               onDisable();
             } else if (item.action === "delete") {
@@ -356,6 +362,7 @@ export default function DeviceCard({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
+  const [filesAndFolderOpen, setFilesAndFolderOpen] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editError, setEditError] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -605,6 +612,7 @@ export default function DeviceCard({
                   align={menuAlign}
                   onClose={() => setMenuOpen(false)}
                   onEdit={() => setEditModalOpen(true)}
+                  onFilesAndFolder={() => setFilesAndFolderOpen(true)}
                   onDisable={handleToggleDisable}
                   onDelete={() => setDeleteModalOpen(true)}
                   onRebootOs={() => {
@@ -780,6 +788,12 @@ export default function DeviceCard({
         open={terminalOpen}
         device={terminalDevice}
         onClose={handleCloseTerminal}
+      />
+
+      <FilesAndFolderModal
+        open={filesAndFolderOpen}
+        device={terminalDevice}
+        onClose={() => setFilesAndFolderOpen(false)}
       />
     </>
   );

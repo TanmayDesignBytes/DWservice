@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import AddGroupModal from "@/components/dashboard/AddGroupModal";
 import DeleteModal from "./DeleteModal";
 
+const EMPTY_GROUPS = [];
+
 const groupMenuItems = [
   { icon: "/edit-03.svg", label: "Edit" },
   { icon: "/trash-01.svg", label: "Delete" },
@@ -159,7 +161,7 @@ function GroupCardItem({ group, onDelete }) {
   );
 }
 
-export default function GroupCardGrid({ initialGroups = [] }) {
+export default function GroupCardGrid({ initialGroups = EMPTY_GROUPS }) {
   const [groups, setGroups] = useState(initialGroups);
 
   useEffect(() => {

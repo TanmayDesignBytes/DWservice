@@ -23,15 +23,19 @@ export class ApiError extends Error {
 
 async function apiRequest(path, options = {}) {
   const { method = "GET", body, token, headers = {}, ...rest } = options;
+  const isFormData =
+    typeof FormData !== "undefined" && body instanceof FormData;
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers: {
-      ...(body ? { "Content-Type": "application/json" } : {}),
+      ...(body && !isFormData ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
-    ...(body ? { body: JSON.stringify(body) } : {}),
+    ...(body
+      ? { body: isFormData ? body : JSON.stringify(body) }
+      : {}),
     ...rest,
   });
 
@@ -220,6 +224,50 @@ export function sendEmailOtp(payload, token = getStoredAuthToken()) {
 
 export function verifyEmailOtp(payload, token = getStoredAuthToken()) {
   return apiRequest("/email/verify-otp", {
+    method: "POST",
+    body: payload,
+    token,
+  });
+}
+
+export function listFilesAndFolders(
+  folder = "general",
+  token = getStoredAuthToken(),
+) {
+  const params = new URLSearchParams();
+
+  if (folder) {
+    params.set("folder", folder);
+  }
+
+  return apiRequest(`/files/list?${params.toString()}`, {
+    headers: {
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+    cache: "no-store",
+    token,
+  });
+}
+
+export function createFolder(payload, token = getStoredAuthToken()) {
+  return apiRequest("/files/create-folder", {
+    method: "POST",
+    body: payload,
+    token,
+  });
+}
+
+export function uploadFile(formData, token = getStoredAuthToken()) {
+  return apiRequest("/files/upload", {
+    method: "POST",
+    body: formData,
+    token,
+  });
+}
+
+export function deleteStoredFile(payload, token = getStoredAuthToken()) {
+  return apiRequest("/files/delete", {
     method: "POST",
     body: payload,
     token,
