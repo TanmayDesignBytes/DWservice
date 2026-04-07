@@ -23,15 +23,19 @@ export class ApiError extends Error {
 
 async function apiRequest(path, options = {}) {
   const { method = "GET", body, token, headers = {}, ...rest } = options;
+  const isFormData =
+    typeof FormData !== "undefined" && body instanceof FormData;
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers: {
-      ...(body ? { "Content-Type": "application/json" } : {}),
+      ...(body && !isFormData ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
-    ...(body ? { body: JSON.stringify(body) } : {}),
+    ...(body
+      ? { body: isFormData ? body : JSON.stringify(body) }
+      : {}),
     ...rest,
   });
 
@@ -222,6 +226,86 @@ export function verifyEmailOtp(payload, token = getStoredAuthToken()) {
   return apiRequest("/email/verify-otp", {
     method: "POST",
     body: payload,
+    token,
+  });
+}
+
+export function listFilesAndFolders(
+  folder = "",
+  token = getStoredAuthToken(),
+) {
+  const params = new URLSearchParams();
+
+  if (folder !== undefined && folder !== null) {
+    params.set("folder", folder);
+  }
+
+  const query = params.toString();
+
+  return apiRequest(`/files/list${query ? `?${query}` : ""}`, {
+    headers: {
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+    cache: "no-store",
+    token,
+  });
+}
+
+export function createFolder(payload, token = getStoredAuthToken()) {
+  return apiRequest("/files/create-folder", {
+    method: "POST",
+    body: payload,
+    token,
+  });
+}
+
+export function uploadFile(formData, token = getStoredAuthToken()) {
+  return apiRequest("/files/upload", {
+    method: "POST",
+    body: formData,
+    token,
+  });
+}
+
+export function deleteStoredFile(payload, token = getStoredAuthToken()) {
+  return apiRequest("/files/delete", {
+    method: "DELETE",
+    body: payload,
+    token,
+  });
+}
+
+export function createGroup(payload, token = getStoredAuthToken()) {
+  return apiRequest("/group/create", {
+    method: "POST",
+    body: payload,
+    token,
+  });
+}
+
+export function getGroups(token = getStoredAuthToken()) {
+  return apiRequest("/group", {
+    headers: {
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+    cache: "no-store",
+    token,
+  });
+}
+
+export function updateGroup(id, payload, token = getStoredAuthToken()) {
+  return apiRequest(`/group/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: payload,
+    token,
+  });
+}
+
+export function deleteGroup(id, token = getStoredAuthToken()) {
+  return apiRequest(`/group/${encodeURIComponent(id)}`, {
+    method: "DELETE",
     token,
   });
 }

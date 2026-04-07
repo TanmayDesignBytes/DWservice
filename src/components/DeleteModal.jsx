@@ -1,6 +1,11 @@
 import { useEffect } from "react";
 
-export default function DeleteModal({ open, onClose, onConfirm }) {
+export default function DeleteModal({
+  open,
+  onClose,
+  onConfirm,
+  closeOnConfirm = true,
+}) {
   // Handle ESC key press
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -33,7 +38,9 @@ export default function DeleteModal({ open, onClose, onConfirm }) {
 
   const handleConfirm = () => {
     onConfirm();
-    onClose();
+    if (closeOnConfirm) {
+      onClose();
+    }
   };
 
   return (
@@ -41,7 +48,10 @@ export default function DeleteModal({ open, onClose, onConfirm }) {
       {/* Overlay */}
       <div
         className="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300"
-        onClick={onClose}
+        onClick={(event) => {
+          event.stopPropagation();
+          onClose();
+        }}
         aria-hidden="true"
       />
 
@@ -50,6 +60,7 @@ export default function DeleteModal({ open, onClose, onConfirm }) {
         className={`fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none transition-all duration-300 ${
           open ? "opacity-100" : "opacity-0"
         }`}
+        onClick={(event) => event.stopPropagation()}
       >
         <div
           className={`w-full max-w-sm bg-white rounded-[12px] shadow-lg p-6 pointer-events-auto transform transition-all duration-300 ${
@@ -57,6 +68,7 @@ export default function DeleteModal({ open, onClose, onConfirm }) {
               ? "scale-100 opacity-100"
               : "scale-95 opacity-0"
           }`}
+          onClick={(event) => event.stopPropagation()}
           role="alertdialog"
           aria-labelledby="delete-modal-title"
           aria-describedby="delete-modal-description"

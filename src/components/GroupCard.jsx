@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import AddGroupModal from "@/components/dashboard/AddGroupModal";
 import DeleteModal from "./DeleteModal";
 
+const EMPTY_GROUPS = [];
+
 const groupMenuItems = [
   { icon: "/edit-03.svg", label: "Edit" },
   { icon: "/trash-01.svg", label: "Delete" },
@@ -102,13 +104,20 @@ function GroupCardGlyph() {
   );
 }
 
-function GroupCardItem({ group, onDelete }) {
+function GroupCardItem({ group, onDelete, onSave }) {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [groupData, setGroupData] = useState({
     name: group.name,
     description: group.description,
   });
+
+  useEffect(() => {
+    setGroupData({
+      name: group.name,
+      description: group.description,
+    });
+  }, [group.description, group.name]);
 
   return (
     <>
@@ -141,8 +150,12 @@ function GroupCardItem({ group, onDelete }) {
       <AddGroupModal
         open={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        onConfirm={(values) => {
-          setGroupData(values);
+        onConfirm={async (values) => {
+          const nextValues = (await onSave?.(group, values)) || values;
+          setGroupData({
+            name: nextValues?.name ?? values.name,
+            description: nextValues?.description ?? values.description,
+          });
           setEditModalOpen(false);
         }}
         initialValues={groupData}
@@ -159,7 +172,11 @@ function GroupCardItem({ group, onDelete }) {
   );
 }
 
-export default function GroupCardGrid({ initialGroups = [] }) {
+export default function GroupCardGrid({
+  initialGroups = EMPTY_GROUPS,
+  onSaveGroup,
+  onDeleteGroup,
+}) {
   const [groups, setGroups] = useState(initialGroups);
 
   useEffect(() => {
@@ -178,7 +195,28 @@ export default function GroupCardGrid({ initialGroups = [] }) {
             <GroupCardItem
               key={group.id}
               group={group}
-              onDelete={(groupId) => {
+              onSave={async (currentGroup, values) => {
+                const updatedGroup = (await onSaveGroup?.(currentGroup, values)) || values;
+
+                setGroups((current) =>
+                  current.map((item) =>
+                    item.id === currentGroup.id
+                      ? {
+                          ...item,
+                          ...updatedGroup,
+                          description:
+                            updatedGroup?.description ?? item.description,
+                          name: updatedGroup?.name ?? item.name,
+                        }
+                      : item,
+                  ),
+                );
+
+                return updatedGroup;
+              }}
+              onDelete={async (groupId) => {
+                const groupToDelete = groups.find((item) => item.id === groupId);
+                await onDeleteGroup?.(groupToDelete);
                 setGroups((current) =>
                   current.filter((item) => item.id !== groupId),
                 );

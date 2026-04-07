@@ -8,13 +8,7 @@ import {
   searchDevices,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { filterTabs } from "@/data/dashboard";
-
-const defaultGroupOptions = [
-  { id: "GCU", label: "GCU" },
-  { id: "Microgrid", label: "Microgrid" },
-  { id: "Koel", label: "Koel" },
-];
+import { defaultGroupOptions, filterTabs } from "@/data/dashboard";
 
 function formatDeviceDate(value) {
   if (!value) {
