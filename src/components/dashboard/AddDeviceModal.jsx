@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 const ChevronDownIcon = () => (
   <svg
@@ -50,25 +50,50 @@ export default function AddDeviceModal({
   isSubmitting = false,
   errorMessage = "",
 }) {
-  const [formValues, setFormValues] = useState(EMPTY_VALUES);
-
   const groupOptions = useMemo(() => {
     return Array.isArray(providedGroupOptions) ? providedGroupOptions : [];
   }, [providedGroupOptions]);
 
-  useEffect(() => {
-    if (open) {
-      setFormValues({
-        name: initialValues?.name ?? "",
-        group: initialValues?.group ?? "",
-        description: initialValues?.description ?? "",
-      });
-    }
-  }, [initialValues, open]);
-
   if (!open) {
     return null;
   }
+
+  return (
+    <AddDeviceModalContent
+      key={[
+        title,
+        confirmLabel,
+        initialValues?.name ?? "",
+        initialValues?.group ?? "",
+        initialValues?.description ?? "",
+      ].join("|")}
+      onClose={onClose}
+      onConfirm={onConfirm}
+      initialValues={initialValues}
+      groupOptions={groupOptions}
+      title={title}
+      confirmLabel={confirmLabel}
+      isSubmitting={isSubmitting}
+      errorMessage={errorMessage}
+    />
+  );
+}
+
+function AddDeviceModalContent({
+  onClose,
+  onConfirm,
+  initialValues,
+  groupOptions,
+  title,
+  confirmLabel,
+  isSubmitting,
+  errorMessage,
+}) {
+  const [formValues, setFormValues] = useState({
+    name: initialValues?.name ?? "",
+    group: initialValues?.group ?? "",
+    description: initialValues?.description ?? "",
+  });
 
   const handleChange = (field) => (event) => {
     setFormValues((current) => ({
@@ -106,7 +131,10 @@ export default function AddDeviceModal({
           {title}
         </h2>
 
-        <form className="mt-8 flex w-full flex-col gap-5 self-stretch" onSubmit={handleSubmit}>
+        <form
+          className="mt-8 flex w-full flex-col gap-5 self-stretch"
+          onSubmit={handleSubmit}
+        >
           <Field label="Device Name">
             <input
               type="text"
@@ -182,4 +210,3 @@ export default function AddDeviceModal({
     </div>
   );
 }
-

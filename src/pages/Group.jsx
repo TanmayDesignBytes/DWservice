@@ -160,8 +160,14 @@ export default function Group({ pathname, onNavigate, onSignOut }) {
   }, []);
 
   useEffect(() => {
-    void loadDevices();
-    void loadGroups();
+    const timeoutId = window.setTimeout(() => {
+      void loadDevices();
+      void loadGroups();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [loadDevices, loadGroups]);
 
   const groupCards = useMemo(

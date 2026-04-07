@@ -12,7 +12,7 @@ const groupMenuItems = [
   { icon: "/share-06.svg", label: "Share" },
 ];
 
-function GroupCardMenu({ onClose, onEdit, onDelete }) {
+function GroupCardMenu({ onClose, onEdit, onDelete, canManage }) {
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -32,10 +32,19 @@ function GroupCardMenu({ onClose, onEdit, onDelete }) {
       className="absolute left-1/2 top-full z-50 mt-2 w-[184px] -translate-x-1/2 rounded-[8px] border border-[rgba(234,236,240,0.5)] bg-white py-1 shadow-[0_4px_4px_rgba(0,0,0,0.25),0_12px_20px_rgba(7,6,18,0.25)]"
     >
       {groupMenuItems.map((item) => (
+        (() => {
+          const isManageAction =
+            item.label === "Edit" || item.label === "Delete";
+          const isDisabled = isManageAction && !canManage;
+
+          return (
         <button
           key={item.label}
           type="button"
           onClick={() => {
+            if (isDisabled) {
+              return;
+            }
             if (item.label === "Edit") {
               onEdit();
             } else if (item.label === "Delete") {
@@ -43,24 +52,32 @@ function GroupCardMenu({ onClose, onEdit, onDelete }) {
             }
             onClose();
           }}
-          className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-[14px] font-medium leading-5 text-[#101728] transition-colors hover:bg-[#f8f9fc]"
+          disabled={isDisabled}
+          title={isDisabled ? "Only backend-created groups can be edited or deleted right now." : undefined}
+          className={`flex w-full items-center gap-2.5 px-4 py-2 text-left text-[14px] font-medium leading-5 transition-colors ${
+            isDisabled
+              ? "cursor-not-allowed text-[#98a2b3]"
+              : "text-[#101728] hover:bg-[#f8f9fc]"
+          }`}
         >
           <span className="flex h-4 w-4 shrink-0 items-center justify-center">
             <img
               src={item.icon}
               alt=""
-              className="h-4 w-4 object-contain"
+              className={`h-4 w-4 object-contain ${isDisabled ? "opacity-40" : ""}`}
               aria-hidden="true"
             />
           </span>
           <span>{item.label}</span>
         </button>
+          );
+        })()
       ))}
     </div>
   );
 }
 
-function GroupCardMenuButton({ onEdit, onDelete }) {
+function GroupCardMenuButton({ onEdit, onDelete, canManage }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -85,6 +102,7 @@ function GroupCardMenuButton({ onEdit, onDelete }) {
           onClose={() => setMenuOpen(false)}
           onEdit={onEdit}
           onDelete={onDelete}
+          canManage={canManage}
         />
       ) : null}
     </div>
@@ -107,17 +125,7 @@ function GroupCardGlyph() {
 function GroupCardItem({ group, onDelete, onSave }) {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [groupData, setGroupData] = useState({
-    name: group.name,
-    description: group.description,
-  });
-
-  useEffect(() => {
-    setGroupData({
-      name: group.name,
-      description: group.description,
-    });
-  }, [group.description, group.name]);
+  const canManage = group.backendId != null;
 
   return (
     <>
@@ -130,19 +138,20 @@ function GroupCardItem({ group, onDelete, onSave }) {
 
           <div className="flex min-w-0 flex-1 flex-col items-start gap-[7px]">
             <h2 className="h-[39.884px] self-stretch truncate font-['DM_Sans'] text-[22px] font-bold leading-[42px] tracking-[-0.44px] text-black">
-              {groupData.name}
+              {group.name}
             </h2>
             <p className="h-[21.936px] self-stretch text-[14px] font-medium leading-6 tracking-[-0.28px] text-[#5d657d]">
               {group.label}
             </p>
             <p className="h-[21.936px] self-stretch truncate text-[14px] font-medium leading-6 tracking-[-0.28px] text-[#5d657d]">
-              {groupData.description}
+              {group.description}
             </p>
           </div>
 
           <GroupCardMenuButton
             onEdit={() => setEditModalOpen(true)}
             onDelete={() => setDeleteModalOpen(true)}
+            canManage={canManage}
           />
         </div>
       </article>
@@ -151,14 +160,13 @@ function GroupCardItem({ group, onDelete, onSave }) {
         open={editModalOpen}
         onClose={() => setEditModalOpen(false)}
         onConfirm={async (values) => {
-          const nextValues = (await onSave?.(group, values)) || values;
-          setGroupData({
-            name: nextValues?.name ?? values.name,
-            description: nextValues?.description ?? values.description,
-          });
+          await onSave?.(group, values);
           setEditModalOpen(false);
         }}
-        initialValues={groupData}
+        initialValues={{
+          name: group.name,
+          description: group.description,
+        }}
         title="Edit Group"
         confirmLabel="Save"
       />
@@ -166,7 +174,7 @@ function GroupCardItem({ group, onDelete, onSave }) {
       <DeleteModal
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
-        onConfirm={() => onDelete(group.id)}
+        onConfirm={() => onDelete(group)}
       />
     </>
   );
@@ -177,11 +185,7 @@ export default function GroupCardGrid({
   onSaveGroup,
   onDeleteGroup,
 }) {
-  const [groups, setGroups] = useState(initialGroups);
-
-  useEffect(() => {
-    setGroups(initialGroups);
-  }, [initialGroups]);
+  const groups = initialGroups;
 
   return (
     <div className="pt-[24.5px]">
@@ -195,32 +199,8 @@ export default function GroupCardGrid({
             <GroupCardItem
               key={group.id}
               group={group}
-              onSave={async (currentGroup, values) => {
-                const updatedGroup = (await onSaveGroup?.(currentGroup, values)) || values;
-
-                setGroups((current) =>
-                  current.map((item) =>
-                    item.id === currentGroup.id
-                      ? {
-                          ...item,
-                          ...updatedGroup,
-                          description:
-                            updatedGroup?.description ?? item.description,
-                          name: updatedGroup?.name ?? item.name,
-                        }
-                      : item,
-                  ),
-                );
-
-                return updatedGroup;
-              }}
-              onDelete={async (groupId) => {
-                const groupToDelete = groups.find((item) => item.id === groupId);
-                await onDeleteGroup?.(groupToDelete);
-                setGroups((current) =>
-                  current.filter((item) => item.id !== groupId),
-                );
-              }}
+              onSave={onSaveGroup}
+              onDelete={onDeleteGroup}
             />
           ))}
         </div>
