@@ -231,16 +231,18 @@ export function verifyEmailOtp(payload, token = getStoredAuthToken()) {
 }
 
 export function listFilesAndFolders(
-  folder = "general",
+  folder = "",
   token = getStoredAuthToken(),
 ) {
   const params = new URLSearchParams();
 
-  if (folder) {
+  if (folder !== undefined && folder !== null) {
     params.set("folder", folder);
   }
 
-  return apiRequest(`/files/list?${params.toString()}`, {
+  const query = params.toString();
+
+  return apiRequest(`/files/list${query ? `?${query}` : ""}`, {
     headers: {
       "Cache-Control": "no-cache",
       Pragma: "no-cache",
@@ -268,8 +270,42 @@ export function uploadFile(formData, token = getStoredAuthToken()) {
 
 export function deleteStoredFile(payload, token = getStoredAuthToken()) {
   return apiRequest("/files/delete", {
+    method: "DELETE",
+    body: payload,
+    token,
+  });
+}
+
+export function createGroup(payload, token = getStoredAuthToken()) {
+  return apiRequest("/group/create", {
     method: "POST",
     body: payload,
+    token,
+  });
+}
+
+export function getGroups(token = getStoredAuthToken()) {
+  return apiRequest("/group", {
+    headers: {
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+    cache: "no-store",
+    token,
+  });
+}
+
+export function updateGroup(id, payload, token = getStoredAuthToken()) {
+  return apiRequest(`/group/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: payload,
+    token,
+  });
+}
+
+export function deleteGroup(id, token = getStoredAuthToken()) {
+  return apiRequest(`/group/${encodeURIComponent(id)}`, {
+    method: "DELETE",
     token,
   });
 }

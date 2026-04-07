@@ -406,9 +406,17 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
       <div className="absolute inset-0 bg-[linear-gradient(180deg,_#f8fbff_0%,_#eef4fb_48%,_#dbe7f4_100%)]" />
       <div className="absolute inset-0 bg-[linear-gradient(to_top,_#5973DC_0%,_rgba(89,115,220,0.75)_28%,_rgba(89,115,220,0.32)_55%,_rgba(89,115,220,0.08)_78%,_rgba(89,115,220,0)_100%)] opacity-75 mix-blend-overlay" />
 
-      <Card className="relative -translate-y-[28px] w-full max-w-[32.125rem] rounded-[1rem] sm:rounded-[1.25rem] border-0 bg-[rgba(255,255,255,0.85)] shadow-[0_0.25rem_0.25rem_rgba(0,0,0,0.25)] backdrop-blur-[0.4063rem]">
+      <Card
+        className={`relative w-full max-w-[32.125rem] rounded-[1rem] sm:rounded-[1.25rem] border-0 bg-[rgba(255,255,255,0.85)] shadow-[0_0.25rem_0.25rem_rgba(0,0,0,0.25)] backdrop-blur-[0.4063rem] ${
+          view === "signup" ? "-translate-y-[38px]" : "-translate-y-[18px]"
+        }`}
+      >
         <CardContent className="p-5 sm:p-[3.125rem]">
-          <div className="flex flex-col items-start justify-center gap-6 sm:gap-8">
+          <div
+            className={`flex flex-col items-start justify-center ${
+              view === "signup" ? "gap-5 sm:gap-6" : "gap-6 sm:gap-8"
+            }`}
+          >
             <div className="flex w-full flex-col items-start gap-4 sm:gap-6 self-stretch">
               <BrandMark />
 
@@ -435,11 +443,17 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
             ) : null}
 
             <form
-              className="flex w-full flex-col gap-4 sm:gap-6 self-stretch"
+              className={`flex w-full flex-col self-stretch ${
+                view === "signup" ? "gap-3 sm:gap-4" : "gap-4 sm:gap-6"
+              }`}
               onSubmit={handleSubmit}
               autoComplete="on"
             >
-              <div className="flex w-full flex-col gap-3 sm:gap-4 self-stretch">
+              <div
+                className={`flex w-full flex-col self-stretch ${
+                  view === "signup" ? "gap-2.5 sm:gap-3" : "gap-3 sm:gap-4"
+                }`}
+              >
                 {view === "signup" ? (
                   <>
                     <div className="flex w-full flex-col items-start gap-[0.25rem] sm:gap-[0.375rem] self-stretch">
@@ -590,7 +604,11 @@ function Login({ pathname = "/", search = "", onNavigate, onSignIn }) {
                 ) : null}
               </div>
 
-              <div className="flex w-full flex-col items-start gap-4 sm:gap-6 self-stretch">
+              <div
+                className={`flex w-full flex-col items-start self-stretch ${
+                  view === "signup" ? "gap-3 sm:gap-4" : "gap-4 sm:gap-6"
+                }`}
+              >
                 {view === "login" ? (
                   <div className="flex w-full items-center justify-between gap-2 sm:gap-4 flex-col xs:flex-row">
                     <label className="flex items-center gap-2 font-['Poppins'] text-[0.75rem] sm:text-[0.875rem] font-medium leading-[1rem] sm:leading-[1.375rem] text-[#344054]">

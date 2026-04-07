@@ -6,10 +6,11 @@ import {
   listFilesAndFolders,
   uploadFile,
 } from "@/lib/api";
+import DeleteModal from "@/components/DeleteModal";
 import { cn } from "@/lib/utils";
 
 const EMPTY_LISTING = {
-  folder: "general",
+  folder: "",
   folders: [],
   files: [],
   totalFiles: 0,
@@ -139,7 +140,7 @@ function joinFolderPath(baseFolder, nextSegment) {
     .trim();
 
   if (!base) {
-    return next || "general";
+    return next;
   }
 
   if (!next) {
@@ -149,13 +150,30 @@ function joinFolderPath(baseFolder, nextSegment) {
   return `${base}/${next}`;
 }
 
+function stripUploadsPrefix(value) {
+  return String(value || "")
+    .replace(/^\/+/, "")
+    .replace(/^uploads\//, "")
+    .trim();
+}
+
+function normalizeFolderPath(value) {
+  const normalized = stripUploadsPrefix(value).replace(/^\/+/, "");
+
+  if (normalized === "root") {
+    return "";
+  }
+
+  return normalized;
+}
+
 function getParentFolder(folder) {
-  const parts = String(folder || "general")
+  const parts = String(folder || "")
     .split("/")
     .filter(Boolean);
 
   if (parts.length <= 1) {
-    return parts[0] || "general";
+    return "";
   }
 
   return parts.slice(0, -1).join("/");
@@ -175,17 +193,33 @@ function getFolderName(folder) {
   );
 }
 
+function resolveCreatedFolderPath(response, fallbackName) {
+  const folderName =
+    typeof response?.folderName === "string" && response.folderName.trim()
+      ? response.folderName.trim()
+      : "";
+  const path =
+    typeof response?.path === "string" && response.path.trim()
+      ? stripUploadsPrefix(response.path)
+      : "";
+
+  return normalizeFolderPath(folderName || path || fallbackName);
+}
+
 function normalizeFolderEntry(folder, baseFolder) {
   const name = getFolderName(folder);
-  const rawPath =
+  const rawPath = stripUploadsPrefix(
     typeof folder === "string"
       ? folder
-      : folder?.path || folder?.folder || folder?.folderName || name;
+      : folder?.path || folder?.folder || folder?.folderName || name,
+  );
 
   return {
     id: `folder:${rawPath}`,
     name,
-    path: rawPath.includes("/") ? rawPath : joinFolderPath(baseFolder, rawPath),
+    path: normalizeFolderPath(
+      rawPath.includes("/") ? rawPath : joinFolderPath(baseFolder, rawPath),
+    ),
     modifiedAt: folder?.uploadDate || folder?.updatedAt || folder?.lastModified || "",
     type: "folder",
   };
@@ -216,7 +250,7 @@ function resolveFileUrl(file) {
     }
   }
 
-  const rawPath = String(file?.path || "").replace(/^\/+/, "");
+  const rawPath = stripUploadsPrefix(file?.path || "");
 
   if (!rawPath) {
     return "";
@@ -226,12 +260,14 @@ function resolveFileUrl(file) {
 }
 
 function normalizeFileEntry(file) {
-  const path = file?.path || file?.name || file?.originalName || "file";
+  const path = stripUploadsPrefix(
+    file?.path || file?.name || file?.fileName || file?.originalName || "file",
+  );
 
   return {
     id: `file:${path}`,
     name: file?.originalName || file?.name || "Unnamed file",
-    rawName: file?.name || file?.originalName || "Unnamed file",
+    rawName: file?.name || file?.fileName || file?.originalName || "Unnamed file",
     path,
     size: Number(file?.size || 0),
     modifiedAt: file?.uploadDate || file?.updatedAt || file?.lastModified || "",
@@ -279,7 +315,8 @@ function formatModifiedAt(value) {
 
 export default function FilesAndFolderModal({ open, device, onClose }) {
   const [listing, setListing] = useState(EMPTY_LISTING);
-  const [currentFolder, setCurrentFolder] = useState("general");
+  const [rootFolders, setRootFolders] = useState([]);
+  const [currentFolder, setCurrentFolder] = useState("");
   const [searchValue, setSearchValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -289,12 +326,35 @@ export default function FilesAndFolderModal({ open, device, onClose }) {
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [deletingPath, setDeletingPath] = useState("");
+  const [pendingDeletePath, setPendingDeletePath] = useState("");
 
   const fileInputRef = useRef(null);
   const requestIdRef = useRef(0);
+  const rootRequestIdRef = useRef(0);
 
-  const loadFolder = useCallback(async (folderPath = "general") => {
-    const nextFolder = folderPath || "general";
+  const loadRootFolders = useCallback(async () => {
+    const requestId = rootRequestIdRef.current + 1;
+    rootRequestIdRef.current = requestId;
+
+    try {
+      const response = await listFilesAndFolders("");
+
+      if (requestId !== rootRequestIdRef.current) {
+        return;
+      }
+
+      setRootFolders(Array.isArray(response?.folders) ? response.folders : []);
+    } catch {
+      if (requestId !== rootRequestIdRef.current) {
+        return;
+      }
+
+      setRootFolders([]);
+    }
+  }, []);
+
+  const loadFolder = useCallback(async (folderPath = "") => {
+    const nextFolder = normalizeFolderPath(folderPath);
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
 
@@ -310,7 +370,7 @@ export default function FilesAndFolderModal({ open, device, onClose }) {
 
       const resolvedFolder =
         typeof response?.folder === "string" && response.folder.trim()
-          ? response.folder.trim()
+          ? normalizeFolderPath(response.folder)
           : nextFolder;
 
       setCurrentFolder(resolvedFolder);
@@ -321,6 +381,10 @@ export default function FilesAndFolderModal({ open, device, onClose }) {
         totalFiles: Number(response?.totalFiles || 0),
         totalFolders: Number(response?.totalFolders || 0),
       });
+
+      if (!resolvedFolder) {
+        setRootFolders(Array.isArray(response?.folders) ? response.folders : []);
+      }
     } catch (error) {
       if (requestId !== requestIdRef.current) {
         return;
@@ -346,12 +410,13 @@ export default function FilesAndFolderModal({ open, device, onClose }) {
     setFeedbackMessage("");
     setShowCreateFolder(false);
     setNewFolderName("");
-    void loadFolder("general");
+    void loadRootFolders();
+    void loadFolder("");
 
     return () => {
       document.body.style.overflow = "unset";
     };
-  }, [loadFolder, open]);
+  }, [loadFolder, loadRootFolders, open]);
 
   useEffect(() => {
     if (!open) {
@@ -406,43 +471,42 @@ export default function FilesAndFolderModal({ open, device, onClose }) {
   }, [normalizedFiles, searchValue]);
 
   const resourceFolders = useMemo(() => {
-    const items = [];
-    const seenPaths = new Set();
-    const currentParts = currentFolder.split("/").filter(Boolean);
-    let runningFolder = "";
+    const items = [{ label: "/root", path: "", depth: 0 }];
+    const seenPaths = new Set([""]);
 
-    currentParts.forEach((part, index) => {
-      runningFolder = index === 0 ? part : `${runningFolder}/${part}`;
+    rootFolders
+      .map((folder) => normalizeFolderEntry(folder, ""))
+      .forEach((folder) => {
+        if (seenPaths.has(folder.path)) {
+          return;
+        }
 
-      if (!seenPaths.has(runningFolder)) {
-        seenPaths.add(runningFolder);
+        seenPaths.add(folder.path);
         items.push({
-          label: `/${part}`,
-          path: runningFolder,
-          depth: index,
+          label: `/${folder.name}`,
+          path: folder.path,
+          depth: 0,
         });
-      }
-    });
-
-    normalizedFolders.forEach((folder) => {
-      if (seenPaths.has(folder.path)) {
-        return;
-      }
-
-      seenPaths.add(folder.path);
-      items.push({
-        label: `/${folder.name}`,
-        path: folder.path,
-        depth: currentParts.length,
       });
-    });
 
-    if (items.length === 0) {
-      return [{ label: "/general", path: "general", depth: 0 }];
+    if (currentFolder && !seenPaths.has(currentFolder)) {
+      items.push({
+        label: `/${getFolderName(currentFolder)}`,
+        path: currentFolder,
+        depth: 0,
+      });
     }
 
     return items;
-  }, [currentFolder, normalizedFolders]);
+  }, [currentFolder, rootFolders]);
+
+  const visibleFolders = useMemo(() => {
+    if (!currentFolder) {
+      return [];
+    }
+
+    return filteredFolders;
+  }, [currentFolder, filteredFolders]);
 
   const handleRefresh = () => {
     setFeedbackMessage("");
@@ -472,13 +536,16 @@ export default function FilesAndFolderModal({ open, device, onClose }) {
     setFeedbackMessage("");
 
     try {
-      await createFolder({
-        folderName: joinFolderPath(currentFolder, trimmedName),
+      const response = await createFolder({
+        folderName: trimmedName,
       });
+      const createdFolderPath = resolveCreatedFolderPath(response, trimmedName);
+
       setNewFolderName("");
       setShowCreateFolder(false);
       setFeedbackMessage("Folder created successfully.");
-      await loadFolder(currentFolder);
+      await loadRootFolders();
+      await loadFolder(createdFolderPath);
     } catch (error) {
       setErrorMessage(error?.message || "Failed to create folder.");
     } finally {
@@ -487,24 +554,71 @@ export default function FilesAndFolderModal({ open, device, onClose }) {
   };
 
   const handleUploadFile = async (event) => {
-    const selectedFile = event.target.files?.[0];
+    const selectedFiles = Array.from(event.target.files || []);
 
-    if (!selectedFile || isUploadingFile) {
+    if (selectedFiles.length === 0 || isUploadingFile) {
       return;
     }
 
     const formData = new FormData();
-    formData.append("file", selectedFile);
-    formData.append("folder", currentFolder);
+    const requestedFolder = currentFolder;
+
+    formData.append("folder", requestedFolder);
+
+    selectedFiles.forEach((file) => {
+      formData.append("files", file);
+    });
 
     setIsUploadingFile(true);
     setErrorMessage("");
     setFeedbackMessage("");
 
     try {
-      await uploadFile(formData);
-      setFeedbackMessage("File uploaded successfully.");
-      await loadFolder(currentFolder);
+      const response = await uploadFile(formData);
+      const uploadedFiles = Array.isArray(response?.files) ? response.files : [];
+
+      if (uploadedFiles.length > 0) {
+        const targetFolder =
+          requestedFolder ||
+          (typeof response?.folder === "string" && response.folder.trim()
+            ? normalizeFolderPath(response.folder)
+            : currentFolder);
+
+        setCurrentFolder(targetFolder);
+        setListing((current) => {
+          const existingFiles = Array.isArray(current.files) ? current.files : [];
+          const existingPaths = new Set(
+            existingFiles.map((file) => stripUploadsPrefix(file?.path || file?.name || file?.fileName || file?.originalName)),
+          );
+
+          const mergedFiles = [...existingFiles];
+
+          uploadedFiles.forEach((file) => {
+            const nextPath = stripUploadsPrefix(
+              file?.path || file?.name || file?.fileName || file?.originalName,
+            );
+
+            if (!existingPaths.has(nextPath)) {
+              existingPaths.add(nextPath);
+              mergedFiles.push(file);
+            }
+          });
+
+          return {
+            ...current,
+            folder: targetFolder,
+            files: mergedFiles,
+            totalFiles: mergedFiles.length,
+          };
+        });
+      } else {
+        await loadFolder(currentFolder);
+      }
+
+      setFeedbackMessage(
+        response?.message ||
+          `${selectedFiles.length} file(s) uploaded successfully.`,
+      );
     } catch (error) {
       setErrorMessage(error?.message || "Failed to upload file.");
     } finally {
@@ -518,22 +632,24 @@ export default function FilesAndFolderModal({ open, device, onClose }) {
       return;
     }
 
-    const shouldDelete = window.confirm(
-      "Do you want to delete this file permanently?",
-    );
+    setPendingDeletePath(filePath);
+  };
 
-    if (!shouldDelete) {
+  const handleConfirmDelete = async () => {
+    if (!pendingDeletePath || deletingPath) {
       return;
     }
 
-    setDeletingPath(filePath);
+    setDeletingPath(pendingDeletePath);
     setErrorMessage("");
     setFeedbackMessage("");
 
     try {
-      await deleteStoredFile({ filePath });
+      await deleteStoredFile({ filePath: pendingDeletePath });
       setFeedbackMessage("File deleted successfully.");
+      await loadRootFolders();
       await loadFolder(currentFolder);
+      setPendingDeletePath("");
     } catch (error) {
       setErrorMessage(error?.message || "Failed to delete file.");
     } finally {
@@ -601,7 +717,7 @@ export default function FilesAndFolderModal({ open, device, onClose }) {
                 Current folder
               </p>
               <h3 className="mt-1 text-[24px] font-semibold text-[#101828]">
-                /{currentFolder}
+                /{currentFolder || "root"}
               </h3>
             </div>
 
@@ -619,7 +735,7 @@ export default function FilesAndFolderModal({ open, device, onClose }) {
             <button
               type="button"
               onClick={handleNavigateUp}
-              disabled={currentFolder === "general"}
+              disabled={!currentFolder}
               className="inline-flex items-center gap-2 rounded-[10px] border border-[#d0d5dd] bg-white px-3 py-2 text-[14px] font-semibold text-[#344054] transition-colors hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ArrowUpIcon />
@@ -662,6 +778,7 @@ export default function FilesAndFolderModal({ open, device, onClose }) {
             <input
               ref={fileInputRef}
               type="file"
+              multiple
               className="hidden"
               onChange={handleUploadFile}
             />
@@ -738,13 +855,13 @@ export default function FilesAndFolderModal({ open, device, onClose }) {
                 <div className="flex min-h-[260px] items-center justify-center px-5 py-8 text-[15px] font-medium text-[#667085]">
                   Loading files and folders...
                 </div>
-              ) : filteredFolders.length === 0 && filteredFiles.length === 0 ? (
+              ) : visibleFolders.length === 0 && filteredFiles.length === 0 ? (
                 <div className="flex min-h-[260px] items-center justify-center px-5 py-8 text-center text-[15px] font-medium text-[#667085]">
                   No files or folders found in this location.
                 </div>
               ) : (
                 <div className="divide-y divide-[#eaecf0] bg-white">
-                  {filteredFolders.map((folder) => (
+                  {visibleFolders.map((folder) => (
                     <div
                       key={folder.id}
                       className="grid grid-cols-[minmax(0,2.2fr)_120px_120px_160px_150px] items-center gap-4 px-5 py-3"
@@ -776,6 +893,14 @@ export default function FilesAndFolderModal({ open, device, onClose }) {
                         className="w-fit rounded-[8px] border border-[#d0d5dd] px-3 py-1.5 text-[13px] font-semibold text-[#344054] transition-colors hover:bg-[#f8fafc]"
                       >
                         Open
+                      </button>
+                      <button
+                        type="button"
+                        disabled
+                        title="Delete folder API is not available yet"
+                        className="w-fit rounded-[8px] border border-[#fda29b] px-3 py-1.5 text-[13px] font-semibold text-[#b42318] opacity-50"
+                      >
+                        Delete
                       </button>
                     </div>
                   ))}
@@ -826,6 +951,17 @@ export default function FilesAndFolderModal({ open, device, onClose }) {
           </div>
         </div>
       </div>
+
+      <DeleteModal
+        open={Boolean(pendingDeletePath)}
+        closeOnConfirm={false}
+        onClose={() => {
+          if (!deletingPath) {
+            setPendingDeletePath("");
+          }
+        }}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }
