@@ -123,7 +123,6 @@ export default function Dashboard({
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddDevice, setShowAddDevice] = useState(false);
   const [deviceList, setDeviceList] = useState([]);
-  const [pendingDevices, setPendingDevices] = useState([]);
   const [searchResults, setSearchResults] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
@@ -194,31 +193,6 @@ export default function Dashboard({
       const items = getDeviceItems(response);
       const apiDevices = items.map(mapApiDevice);
       setDeviceList(apiDevices);
-      setPendingDevices((current) =>
-        current.filter((pendingDevice) => {
-          return !apiDevices.some((device) => {
-            const isSameDevice =
-              (pendingDevice.id != null && device.id === pendingDevice.id) ||
-              (
-                pendingDevice.deviceIdentifier &&
-                device.deviceIdentifier === pendingDevice.deviceIdentifier
-              ) ||
-              (
-                pendingDevice.generatedCode &&
-                device.generatedCode === pendingDevice.generatedCode
-              );
-
-            if (!isSameDevice) {
-              return false;
-            }
-
-            return (
-              device.status === "to-install" ||
-              Boolean(device.generatedCode)
-            );
-          });
-        }),
-      );
     } catch (error) {
       setDeviceList([]);
       setDevicesError(error?.message || "Failed to load devices");
@@ -230,25 +204,6 @@ export default function Dashboard({
   useEffect(() => {
     void loadDevices();
   }, [loadDevices]);
-
-  const mergedDevices = useMemo(() => {
-    const devicesByKey = new Map();
-
-    [...pendingDevices, ...deviceList].forEach((device) => {
-      const key =
-        device.deviceIdentifier ||
-        device.generatedCode ||
-        String(device.id);
-
-      if (!devicesByKey.has(key)) {
-        devicesByKey.set(key, device);
-      } else if (!device.isPendingOnly) {
-        devicesByKey.set(key, device);
-      }
-    });
-
-    return Array.from(devicesByKey.values());
-  }, [deviceList, pendingDevices]);
 
   useEffect(() => {
     const normalizedQuery = searchQuery.trim();
@@ -282,7 +237,7 @@ export default function Dashboard({
   }, [searchQuery]);
 
   const groupOptions = useMemo(() => {
-    const sourceDevices = searchResults ?? mergedDevices;
+    const sourceDevices = searchResults ?? deviceList;
     const optionMap = new Map(
       defaultGroupOptions.map((option) => [option.id, option.label]),
     );
@@ -294,10 +249,10 @@ export default function Dashboard({
     }
 
     return Array.from(optionMap, ([id, label]) => ({ id, label }));
-  }, [mergedDevices, searchResults]);
+  }, [deviceList, searchResults]);
 
   const filteredDevices = useMemo(() => {
-    const sourceDevices = searchResults ?? mergedDevices;
+    const sourceDevices = searchResults ?? deviceList;
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const compactQuery = normalizeSearchText(searchQuery);
 
@@ -355,7 +310,7 @@ export default function Dashboard({
 
       return compactSearchableValue.includes(compactQuery);
     });
-  }, [mergedDevices, searchQuery, searchResults, selectedGroup, selectedTab]);
+  }, [deviceList, searchQuery, searchResults, selectedGroup, selectedTab]);
 
   const emptyStateMessage = useMemo(() => {
     if (isLoadingDevices) {
@@ -445,7 +400,7 @@ export default function Dashboard({
         isPendingOnly: backendId == null,
       });
 
-      setPendingDevices((current) => [createdDevice, ...current]);
+      setDeviceList((current) => [createdDevice, ...current]);
       setShowAddDevice(false);
       setSelectedGroup(null);
       setSelectedTab("to-install");
@@ -461,9 +416,6 @@ export default function Dashboard({
     setDeviceList((current) =>
       current.filter((device) => device.id !== deviceId),
     );
-    setPendingDevices((current) =>
-      current.filter((device) => device.id !== deviceId),
-    );
   }, []);
 
   const handleDisableDevice = useCallback((deviceId, isDisabled) => {
@@ -477,30 +429,10 @@ export default function Dashboard({
           : device,
       ),
     );
-    setPendingDevices((current) =>
-      current.map((device) =>
-        device.id === deviceId
-          ? {
-              ...device,
-              status: isDisabled ? "disabled" : "offline",
-            }
-          : device,
-      ),
-    );
   }, []);
 
   const handleUpdateDevice = useCallback((deviceId, nextValues) => {
     setDeviceList((current) =>
-      current.map((device) =>
-        device.id === deviceId
-          ? {
-              ...device,
-              ...nextValues,
-            }
-          : device,
-      ),
-    );
-    setPendingDevices((current) =>
       current.map((device) =>
         device.id === deviceId
           ? {

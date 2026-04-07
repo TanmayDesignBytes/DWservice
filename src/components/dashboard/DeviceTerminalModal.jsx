@@ -1,39 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { sendTerminalCommand } from "@/lib/api";
 
+// ─── helpers ────────────────────────────────────────────────────────────────
+
 function formatPrompt(session) {
-  const host =
-    String(session?.hostname || "raspberrypi")
-      .toLowerCase()
-      .replace(/[^a-z0-9-]+/g, "")
-      .slice(0, 20) || "raspberrypi";
-  const user = session?.username || "pi";
-  const cwd = session?.cwd || `/home/${user}`;
-  const shortCwd =
-    cwd.startsWith(`/home/${user}`) ? cwd.replace(`/home/${user}`, "~") : cwd;
+  const host = String(session?.hostname || "raspberrypi")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "")
+    .slice(0, 20) || "raspberrypi";
+  const user  = session?.username || "pi";
+  const cwd   = session?.cwd || `/home/${user}`;
+  const short = cwd.startsWith(`/home/${user}`)
+    ? cwd.replace(`/home/${user}`, "~")
+    : cwd;
 
   return {
-    host,
-    user,
-    cwd,
-    prompt: `\u001b[1;32m${user}@${host}\u001b[0m:\u001b[1;34m${shortCwd}\u001b[0m $ `,
+    host, user, cwd,
+    prompt: `\u001b[1;32m${user}@${host}\u001b[0m:\u001b[1;34m${short}\u001b[0m $ `,
   };
 }
 
-function getHelpOutput(device) {
-  return [
-    "Available commands:",
-    "help      show supported commands",
-    "clear     clear the terminal",
-    "exit      close the terminal",
-    "",
-    "All other commands are sent to the backend device command API.",
-    `Example: cd DWcode`,
-    `Target agent: ${device.deviceIdentifier || "not connected"}`,
-  ];
-}
-
-function extractTerminalOutput(response) {
+function extractOutput(response) {
   const candidates = [
     response?.output,
     response?.stdout,
@@ -44,364 +31,328 @@ function extractTerminalOutput(response) {
     response?.data?.result,
     response?.data?.response,
   ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate.trim();
-    }
-
-    if (Array.isArray(candidate) && candidate.length > 0) {
-      return candidate.join("\r\n");
-    }
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim()) return c;
+    if (Array.isArray(c) && c.length) return c.join("\r\n");
   }
-
   return "";
 }
 
-function stripEchoedCommand(output, sentCommand) {
-  const normalizedOutput = String(output || "").replace(/\r\n/g, "\n");
-  const normalizedCommand = String(sentCommand || "").trim();
-
-  if (!normalizedOutput || !normalizedCommand) {
-    return output;
-  }
-
-  const outputLines = normalizedOutput.split("\n");
-  const firstLine = (outputLines[0] || "").trim();
-
-  if (firstLine !== normalizedCommand) {
-    return output;
-  }
-
-  const strippedOutput = outputLines.slice(1).join("\n").replace(/^\n+/, "");
-  return strippedOutput.replace(/\n/g, "\r\n");
+/**
+ * Detect whether the raw output from the backend contains a visible shell
+ * prompt line (user@host:...$ ) — meaning the interactive program has exited.
+ */
+function looksLikeShellPrompt(text) {
+  // matches things like "pi@raspberrypi:~/DWcode $ "
+  return /\w+@\w+:[^\r\n]*[$#]\s*$/.test(String(text || ""));
 }
 
-function shouldForwardRawKey(data) {
-  if (!data) {
-    return false;
+/**
+ * Strip the first line if it exactly echoes the command we sent.
+ * Only used in non-interactive (plain command) mode.
+ */
+function stripEcho(output, cmd) {
+  if (!output || !cmd) return output;
+  const lines = output.replace(/\r\n/g, "\n").split("\n");
+  if (lines[0]?.trim() === cmd.trim()) {
+    return lines.slice(1).join("\n").replace(/^\n+/, "").replace(/\n/g, "\r\n");
   }
-
-  if (data === "\t") {
-    return true;
-  }
-
-  if (data.length > 1) {
-    return true;
-  }
-
-  const code = data.charCodeAt(0);
-  return code < 32 && data !== "\r" && data !== "\u007f" && data !== "\b";
+  return output;
 }
 
-function getControlCharacter(key) {
-  if (!/^[a-z]$/i.test(key || "")) {
-    return "";
-  }
-
-  return String.fromCharCode(key.toUpperCase().charCodeAt(0) - 64);
-}
+// ─── component ──────────────────────────────────────────────────────────────
 
 export default function DeviceTerminalModal({ open, device, onClose }) {
-  const terminalHostRef = useRef(null);
-  const commandBufferRef = useRef("");
-  const interactiveModeRef = useRef(false);
-  const [showConfirmation, setShowConfirmation] = useState(false);
+  const terminalHostRef  = useRef(null);
+  const cmdBufRef        = useRef("");          // typed chars before Enter
+  const interactiveRef   = useRef(false);       // are we inside nano/vim/less?
+  const pendingRef       = useRef(false);       // a request is in-flight
+  const termRef          = useRef(null);        // xterm instance
+  const promptRef        = useRef("");          // current prompt string
+  const [confirmClose, setConfirmClose] = useState(false);
 
-  const handleCloseClick = () => {
-    setShowConfirmation(true);
-  };
+  // ── close helpers ──────────────────────────────────────────────────────────
+  const handleCloseClick   = ()  => setConfirmClose(true);
+  const handleCancelClose  = ()  => setConfirmClose(false);
+  const handleConfirmClose = ()  => { setConfirmClose(false); onClose?.(); };
 
-  const handleConfirmClose = () => {
-    setShowConfirmation(false);
-    onClose?.();
-  };
-
-  const handleCancelClose = () => {
-    setShowConfirmation(false);
-  };
-
+  // ── main effect ────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!open || !terminalHostRef.current || !device) {
-      return undefined;
-    }
+    if (!open || !terminalHostRef.current || !device) return undefined;
 
-    let isDisposed = false;
-    let cleanup = () => {};
+    let disposed = false;
+    let teardown = () => {};
 
-    const setupTerminal = async () => {
-      const [sessionResponse, { FitAddon }, { Terminal }] = await Promise.all([
-        Promise.resolve(null),
-        import("@xterm/addon-fit"),
+    (async () => {
+      const [{ Terminal }, { FitAddon }] = await Promise.all([
         import("@xterm/xterm"),
+        import("@xterm/addon-fit"),
         import("@xterm/xterm/css/xterm.css"),
       ]);
 
-      if (isDisposed || !terminalHostRef.current) {
-        return;
-      }
+      if (disposed || !terminalHostRef.current) return;
 
-      const session = sessionResponse?.session || null;
-      const promptConfig = formatPrompt(session);
-      const { prompt } = promptConfig;
-      const shellPromptPrefix = `${promptConfig.user}@${promptConfig.host}:`;
-      const terminal = new Terminal({
-        cursorBlink: true,
-        convertEol: true,
-        fontFamily: '"Courier New", Consolas, monospace',
-        fontSize: 15,
-        lineHeight: 1.2,
-        cursorStyle: "block",
-        cursorInactiveStyle: "block",
+      // ── build terminal ────────────────────────────────────────────────────
+      const term = new Terminal({
+        cursorBlink      : true,
+        convertEol       : true,   // \n → \r\n so lines don't overwrite
+        scrollback       : 2000,
+        fontFamily       : '"Courier New", Consolas, monospace',
+        fontSize         : 15,
+        lineHeight       : 1.2,
+        cursorStyle      : "block",
         theme: {
-          background: "#000000",
-          foreground: "#f5f5f5",
-          cursor: "#19ff19",
-          cursorAccent: "#19ff19",
+          background       : "#000000",
+          foreground       : "#f5f5f5",
+          cursor           : "#19ff19",
+          cursorAccent     : "#19ff19",
           selectionBackground: "rgba(255,255,255,0.18)",
-          black: "#000000",
-          brightBlack: "#666666",
-          red: "#ff6b6b",
-          brightRed: "#ff8e8e",
-          green: "#00d700",
-          brightGreen: "#19ff19",
-          yellow: "#ffff5f",
-          brightYellow: "#ffff87",
-          blue: "#5f87ff",
-          brightBlue: "#87afff",
-          magenta: "#d787ff",
-          brightMagenta: "#ffafff",
-          cyan: "#5fffff",
-          brightCyan: "#87ffff",
-          white: "#d9d9d9",
-          brightWhite: "#ffffff",
+          black            : "#000000",
+          brightBlack      : "#666666",
+          red              : "#ff6b6b",
+          brightRed        : "#ff8e8e",
+          green            : "#00d700",
+          brightGreen      : "#19ff19",
+          yellow           : "#ffff5f",
+          brightYellow     : "#ffff87",
+          blue             : "#5f87ff",
+          brightBlue       : "#87afff",
+          magenta          : "#d787ff",
+          brightMagenta    : "#ffafff",
+          cyan             : "#5fffff",
+          brightCyan       : "#87ffff",
+          white            : "#d9d9d9",
+          brightWhite      : "#ffffff",
         },
       });
-      const fitAddon = new FitAddon();
 
-      terminal.loadAddon(fitAddon);
-      terminal.open(terminalHostRef.current);
-      fitAddon.fit();
-      terminal.focus();
-      commandBufferRef.current = "";
+      const fit = new FitAddon();
+      term.loadAddon(fit);
+      term.open(terminalHostRef.current);
+      fit.fit();
+      term.focus();
+      termRef.current = term;
 
-      const resetTerminalViewport = () => {
-        terminal.write("\u001b[2J\u001b[3J\u001b[H");
+      // build initial prompt
+      const pCfg = formatPrompt(null);
+      promptRef.current = pCfg.prompt;
+      cmdBufRef.current = "";
+      interactiveRef.current = false;
+      pendingRef.current = false;
+
+      // show prompt
+      term.write(promptRef.current);
+
+      // ── helpers ───────────────────────────────────────────────────────────
+
+      /** Write raw backend output to xterm — DO NOT add extra newlines here */
+      const writeOutput = (raw) => {
+        if (!raw) return;
+        // xterm.js handles all ANSI/VT100 sequences natively when you just
+        // call term.write().  Do NOT sanitise, strip, or add prefixes.
+        term.write(raw);
       };
 
-      const hasShellPrompt = (value) =>
-        String(value || "")
-          .replace(/\r\n/g, "\n")
-          .split("\n")
-          .some(
-            (line) =>
-              line.includes(shellPromptPrefix) && /[$#]\s*$/.test(line.trim()),
-          );
+      /** Send a key/sequence directly to the backend (interactive mode). */
+      const sendRaw = async (seq) => {
+        if (!device.deviceIdentifier) return;
+        try {
+          const res = await sendTerminalCommand(device.deviceIdentifier, seq, true);
+          const out = extractOutput(res);
 
-      const writeBackendOutput = (response, sentCommand = "") => {
-        const terminalOutput = stripEchoedCommand(
-          extractTerminalOutput(response),
-          interactiveModeRef.current ? "" : sentCommand,
-        );
+          if (!out || out === "Timeout") return;
 
-        if (terminalOutput && terminalOutput !== "Timeout") {
-          if (interactiveModeRef.current) {
-            if (hasShellPrompt(terminalOutput)) {
-              interactiveModeRef.current = false;
-              terminal.write("\u001b[?1049l");
-              terminal.write(terminalOutput);
-              return;
-            }
-
-            terminal.write(terminalOutput);
+          // ── detect exit from interactive program ──────────────────────────
+          // The backend returns the refreshed screen content.  If the final
+          // visible line is a shell prompt, the TUI has exited.
+          if (looksLikeShellPrompt(out)) {
+            interactiveRef.current = false;
+            // Write the full output (which includes the shell prompt the
+            // backend echoed back).  Then write OUR local prompt on a new line
+            // so the user knows we're back in normal mode.
+            writeOutput(out);
+            // move to new line and show our prompt
+            term.write("\r\n" + promptRef.current);
             return;
           }
 
-          terminal.write(`\r\n${terminalOutput}`);
+          // Still inside the TUI — just render whatever the backend sent.
+          writeOutput(out);
+        } catch (err) {
+          console.error("sendRaw error", err);
+          // Don't spam the terminal for every keystroke failure silently.
         }
       };
 
-      const sendRawImmediately = async (value) => {
+      /** Run a buffered command (after Enter). */
+      const runCommand = async (raw) => {
+        const cmd = raw.trim();
+
+        if (!cmd) {
+          term.write("\r\n" + promptRef.current);
+          return;
+        }
+
+        // ── built-ins ───────────────────────────────────────────────────────
+        if (cmd === "clear") {
+          term.write("\u001b[2J\u001b[3J\u001b[H");
+          term.write(promptRef.current);
+          return;
+        }
+        if (cmd === "exit") { onClose?.(); return; }
+
+        // ── backend call ────────────────────────────────────────────────────
         if (!device.deviceIdentifier) {
-          terminal.write("\r\nDevice agent id is missing.");
+          term.write("\r\nDevice agent id is missing.\r\n" + promptRef.current);
           return;
         }
 
+        // Detect whether this is an interactive TUI command BEFORE sending.
+        const isTui = /^(nano|vim|vi|less|more|top|htop|man)\b/.test(cmd);
+        if (isTui) interactiveRef.current = true;
+
+        pendingRef.current = true;
         try {
-          const response = await sendTerminalCommand(
-            device.deviceIdentifier,
-            value,
-            true,
-          );
-          writeBackendOutput(response);
-        } catch (error) {
-          console.error(error);
-          terminal.write(
-            `\r\n${error?.message || "Failed to send input to device."}`,
-          );
-        }
-      };
+          const res = await sendTerminalCommand(device.deviceIdentifier, cmd, false);
+          const raw_out = extractOutput(res);
 
-      const runCommand = async (rawCommand) => {
-        const trimmedCommand = rawCommand.trim();
-        const command = trimmedCommand.toLowerCase();
-        const isInteractiveEditorCommand = /^(nano|vim|vi|less|more)\b/.test(
-          command,
-        );
-
-        if (!trimmedCommand) {
-          terminal.write("\r\n");
-          terminal.write(prompt);
-          return;
-        }
-
-        if (command === "clear") {
-          resetTerminalViewport();
-          terminal.write(prompt);
-          return;
-        }
-
-        if (command === "exit") {
-          onClose?.();
-          return;
-        }
-
-        if (command === "help") {
-          terminal.write(`\r\n${getHelpOutput(device).join("\r\n")}`);
-          terminal.write(`\r\n${prompt}`);
-          return;
-        }
-
-        if (!device.deviceIdentifier) {
-          terminal.write("\r\nDevice agent id is missing.");
-          terminal.write(`\r\n${prompt}`);
-          return;
-        }
-
-        try {
-          if (isInteractiveEditorCommand) {
-            interactiveModeRef.current = true;
-          }
-
-          const response = await sendTerminalCommand(
-            device.deviceIdentifier,
-            trimmedCommand,
-            false,
-          );
-          writeBackendOutput(response, trimmedCommand);
-        } catch (error) {
-          terminal.write(
-            `\r\n${error?.message || "Failed to send command to device."}`,
-          );
-        } finally {
-          if (!isInteractiveEditorCommand) {
-            terminal.write(`\r\n${prompt}`);
-          }
-        }
-      };
-
-      terminal.write(prompt);
-
-      terminal.attachCustomKeyEventHandler((event) => {
-        if (
-          event.type === "keydown" &&
-          event.ctrlKey &&
-          !event.altKey &&
-          !event.metaKey
-        ) {
-          const controlCharacter = getControlCharacter(event.key);
-
-          if (!controlCharacter) {
-            return true;
-          }
-
-          event.preventDefault();
-
-          if (controlCharacter === "\u0003") {
-            commandBufferRef.current = "";
-            if (!interactiveModeRef.current) {
-              terminal.write("^C");
-              terminal.write(`\r\n${prompt}`);
+          if (!raw_out || raw_out === "Timeout") {
+            // Nothing to show — just re-prompt (unless TUI, which will stream)
+            if (!interactiveRef.current) {
+              term.write("\r\n" + promptRef.current);
             }
+            return;
           }
 
-          void sendRawImmediately(controlCharacter);
-          return false;
+          if (isTui) {
+            // The backend returns the initial screen of the TUI.
+            // Write it straight — xterm will render the full-screen app.
+            // NO extra \r\n prefix, NO stripping.
+            writeOutput(raw_out);
+            // Do NOT write a prompt — we're in TUI mode now.
+          } else {
+            // Strip echo of the command if the backend reflects it.
+            const cleaned = stripEcho(raw_out, cmd);
+            // Prefix with \r\n to move off the command line, then output.
+            term.write("\r\n");
+            writeOutput(cleaned);
+            // After output, show prompt on a new line.
+            // Check if output already ends with a newline.
+            const endsWithNewline = /[\r\n]$/.test(cleaned);
+            if (!endsWithNewline) term.write("\r\n");
+            term.write(promptRef.current);
+          }
+        } catch (err) {
+          term.write("\r\n" + (err?.message || "Command failed.") + "\r\n" + promptRef.current);
+          interactiveRef.current = false;
+        } finally {
+          pendingRef.current = false;
+        }
+      };
+
+      // ── ctrl-key handler ──────────────────────────────────────────────────
+      term.attachCustomKeyEventHandler((ev) => {
+        if (ev.type !== "keydown" || !ev.ctrlKey || ev.altKey || ev.metaKey) {
+          return true; // let xterm handle it normally
         }
 
-        return true;
+        const key = ev.key.toUpperCase();
+        if (!/^[A-Z]$/.test(key)) return true;
+
+        const seq = String.fromCharCode(key.charCodeAt(0) - 64); // Ctrl+A = \x01 etc.
+        ev.preventDefault();
+
+        if (seq === "\x03") {
+          // Ctrl+C
+          if (interactiveRef.current) {
+            void sendRaw(seq);
+          } else {
+            cmdBufRef.current = "";
+            term.write("^C\r\n" + promptRef.current);
+          }
+        } else if (seq === "\x04") {
+          // Ctrl+D — EOF / quit
+          void sendRaw(seq);
+        } else if (seq === "\x1a") {
+          // Ctrl+Z — suspend (just forward)
+          void sendRaw(seq);
+        } else {
+          // All other Ctrl combos — forward to backend if in interactive mode
+          if (interactiveRef.current) void sendRaw(seq);
+        }
+
+        return false; // prevent xterm default
       });
 
-      const dataDisposable = terminal.onData((data) => {
-        if (!device.deviceIdentifier) {
-          terminal.write("\r\nDevice agent id is missing.");
+      // ── main data handler ─────────────────────────────────────────────────
+      const dataSub = term.onData((data) => {
+        if (!device.deviceIdentifier) return;
+
+        // ── INTERACTIVE MODE (inside nano/vim/etc.) ────────────────────────
+        // Every single keypress goes straight to the backend.  We do NOT
+        // echo locally — the backend's PTY echo comes back in the response.
+        if (interactiveRef.current) {
+          void sendRaw(data);
           return;
         }
 
-        if (interactiveModeRef.current) {
-          void sendRawImmediately(data);
-          return;
-        }
+        // ── NORMAL (shell line-editing) MODE ──────────────────────────────
 
         if (data === "\r") {
-          const command = commandBufferRef.current;
-          commandBufferRef.current = "";
-          void runCommand(command);
+          // Enter — submit buffered command
+          const cmd = cmdBufRef.current;
+          cmdBufRef.current = "";
+          void runCommand(cmd);
           return;
         }
 
         if (data === "\u007f" || data === "\b") {
-          if (commandBufferRef.current.length > 0) {
-            commandBufferRef.current = commandBufferRef.current.slice(0, -1);
-            terminal.write("\b \b");
+          // Backspace
+          if (cmdBufRef.current.length > 0) {
+            cmdBufRef.current = cmdBufRef.current.slice(0, -1);
+            term.write("\b \b");
           }
           return;
         }
 
-        if (shouldForwardRawKey(data)) {
-          void sendRawImmediately(data);
+        if (data === "\t") {
+          // Tab — could forward for completion, skip for now
           return;
         }
 
+        // Arrow keys and other escape sequences in normal mode — ignore
+        // (they start with ESC = \u001b)
+        if (data.startsWith("\u001b")) return;
+
+        // Printable character
         if (data >= " " && data !== "\u007f") {
-          commandBufferRef.current += data;
-          terminal.write(data);
+          cmdBufRef.current += data;
+          term.write(data); // local echo
         }
       });
 
-      const handleResize = () => {
-        fitAddon.fit();
+      // ── resize handler ───────────────────────────────────────────────────
+      const onResize = () => fit.fit();
+      window.addEventListener("resize", onResize);
+
+      // ── cleanup ──────────────────────────────────────────────────────────
+      teardown = () => {
+        dataSub.dispose();
+        window.removeEventListener("resize", onResize);
+        term.dispose();
+        termRef.current = null;
+        cmdBufRef.current = "";
+        interactiveRef.current = false;
       };
-
-      const handleKeyDown = (event) => {
-        if (event.key === "Escape") {
-          onClose?.();
-        }
-      };
-
-      window.addEventListener("resize", handleResize);
-      window.addEventListener("keydown", handleKeyDown);
-
-      cleanup = () => {
-        dataDisposable.dispose();
-        window.removeEventListener("resize", handleResize);
-        window.removeEventListener("keydown", handleKeyDown);
-        terminal.dispose();
-        commandBufferRef.current = "";
-      };
-    };
-
-    void setupTerminal();
+    })();
 
     return () => {
-      isDisposed = true;
-      cleanup();
+      disposed = true;
+      teardown();
     };
   }, [device, onClose, open]);
 
-  if (!open || !device) {
-    return null;
-  }
+  if (!open || !device) return null;
 
   return (
     <div
@@ -410,18 +361,16 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
     >
       <div
         className="flex h-[min(78dvh,620px)] w-full max-w-[min(92vw,900px)] flex-col overflow-hidden rounded-[10px] border border-[#7ba9d8] bg-[#000000] shadow-[0_28px_70px_rgba(2,6,23,0.45)]"
-        onClick={(event) => event.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
+        {/* header */}
         <div className="flex items-center justify-between border-b border-[#7ba9d8] bg-[#86b6e8] px-4 py-2">
           <div>
             <p className="font-['Poppins'] text-[14px] font-semibold text-[#08111f]">
               {device.name} SSH Console
             </p>
-            <p className="text-[10px] text-[#163252]">
-              Remote terminal session
-            </p>
+            <p className="text-[10px] text-[#163252]">Remote terminal session</p>
           </div>
-
           <button
             type="button"
             onClick={handleCloseClick}
@@ -431,6 +380,7 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
           </button>
         </div>
 
+        {/* status bar */}
         <div className="flex flex-wrap items-center gap-2 border-b border-[#163252] bg-[#050505] px-4 py-2 text-[10px] text-[#bbbbbb]">
           <span className="rounded border border-[#1f1f1f] bg-[#0c0c0c] px-2 py-1">
             Group: {device.group}
@@ -443,6 +393,7 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
           </span>
         </div>
 
+        {/* terminal */}
         <div className="min-h-0 flex-1 bg-[#000000] p-0">
           <div
             ref={terminalHostRef}
@@ -451,12 +402,13 @@ export default function DeviceTerminalModal({ open, device, onClose }) {
         </div>
       </div>
 
-      {showConfirmation && (
-        <div 
+      {/* confirm-close dialog */}
+      {confirmClose && (
+        <div
           className="fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(3,7,18,0.8)] backdrop-blur-[2px]"
           onClick={handleCancelClose}
         >
-          <div 
+          <div
             className="flex w-full max-w-sm flex-col gap-4 rounded-[10px] border border-[#7ba9d8] bg-[#0d1622] p-6 shadow-[0_28px_70px_rgba(2,6,23,0.45)]"
             onClick={(e) => e.stopPropagation()}
           >

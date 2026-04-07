@@ -671,6 +671,10 @@ export default function DashboardLayout({
     let isMounted = true;
     const storedProfile = readStoredUserProfile();
 
+    if (storedProfile) {
+      setUserProfile(storedProfile);
+    }
+
     const loadUserProfile = async () => {
       try {
         const response = await getUserInfo();
